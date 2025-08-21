@@ -1,29 +1,44 @@
 {
-  "name": "server",
+  "name": "be-x-server",
   "version": "1.0.0",
-  "description": "",
-  "main": "dist/app.js",
-  "scripts": {
-    "start": "tsc && node dist/app.js",
-    "dev": "tsc --watch & nodemon dist/app.js",
-    "build": "tsc",
-    "lint": "eslint . --ext .ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "private": true,
+  "description": "BE-X clone — Express + TypeORM + PostgreSQL",
   "type": "commonjs",
-  "devDependencies": {
-    "@eslint/js": "^9.33.0",
-    "@types/express": "^5.0.3",
-    "eslint": "^9.33.0",
-    "globals": "^16.3.0",
-    "tslint": "^5.20.1",
-    "typescript": "^5.9.2",
-    "typescript-eslint": "^8.40.0"
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "migration:generate": "typeorm-ts-node-commonjs -d src/db.ts migration:generate ./migrations/auto",
+    "migration:run": "typeorm-ts-node-commonjs -d src/db.ts migration:run",
+    "migration:revert": "typeorm-ts-node-commonjs -d src/db.ts migration:revert",
+    "check": "tsc --noEmit"
   },
   "dependencies": {
-    "express": "^5.1.0"
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dayjs": "^1.11.11",
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.2",
+    "pg": "^8.11.5",
+    "reflect-metadata": "^0.1.13",
+    "typeorm": "^0.3.20",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.2",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/morgan": "^1.9.7",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^20.14.10",
+    "ts-node-dev": "^2.0.0",
+    "typeorm-ts-node-commonjs": "^0.3.20",
+    "typescript": "^5.9.2"
   }
 }

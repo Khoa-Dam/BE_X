@@ -11,8 +11,14 @@ app.use(express.urlencoded({ extended: true }));
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
-  console.log(`📱 Health check: http://localhost:${PORT}/health`);
-  console.log(`🏠 Home: http://localhost:${PORT}/`);
+});
+
+app.get('/', (req, res) => {
+  res.send('API is running');
+});
+
+app.get('/auth', (req, res) => {
+  res.send('API is running');
 });
 
 export default app;
