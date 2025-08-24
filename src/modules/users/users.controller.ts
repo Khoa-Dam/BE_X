@@ -9,6 +9,7 @@ const UpdateMeDto = z.object({
 });
 
 export const getMe = async (req: Request, res: Response, next: NextFunction) => {
+    console.log(req.user);
     try { res.json(success(await svc.getMe(String(req.user!.id)))); } catch (e) { next(e); }
 }
 export const updateMe = async (req: Request, res: Response, next: NextFunction) => {

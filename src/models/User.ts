@@ -7,9 +7,9 @@ export interface IUser {
     _id: Types.ObjectId;
     name: string;
     email: string;
-    passwordHash?: string | null;
+    passwordHash?: string;
     role: Role;
-    googleId?: string | null;
+    googleId?: string;
     provider: AuthProvider;
     avatarId?: Types.ObjectId | null;
     createdAt: Date;
@@ -21,7 +21,7 @@ const userSchema = new Schema<IUser>({
     email: { type: String, required: true, maxlength: 191, unique: true, index: true },
     passwordHash: { type: String, default: null },
     role: { type: String, enum: Object.values(Role), default: Role.USER },
-    googleId: { type: String, default: null, unique: true, sparse: true },
+    googleId: { type: String, unique: true, sparse: true },
     provider: { type: String, enum: Object.values(AuthProvider), default: AuthProvider.LOCAL },
     avatarId: { type: Schema.Types.ObjectId, ref: 'File', default: null },
 }, { timestamps: true });

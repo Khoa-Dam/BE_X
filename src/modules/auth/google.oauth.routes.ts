@@ -34,7 +34,7 @@ router.get('/google/callback', async (req, res, next) => {
       maxAge: Number(env.JWT_REFRESH_EXPIRES) * 1000
     });
 
-    return res.redirect(`${env.FRONTEND_URL}/dashboard`);
+    return res.redirect(`${env.FRONTEND_URL}`);
   } catch (e) { next(e); }
 });
 

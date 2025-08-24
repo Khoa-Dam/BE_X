@@ -100,7 +100,7 @@ export async function logout(userId: number, oldRefresh?: string) {
 }
 
 /** Phát JWT (access/refresh) cho một userId — dùng trong Google callback */
-export async function issueTokensForUserId(userId: number) {
+export async function issueTokensForUserId(userId: string) {
     const u = await UserModel.findById(userId);
     if (!u) throw new AppError('NOT_FOUND', 'User not found', 404);
 

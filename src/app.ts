@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Router } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -8,11 +8,14 @@ import cookieParser from 'cookie-parser';
 import { errorHandler } from './middlewares/error';
 import authRoutes from './modules/auth/auth.routes';
 import googleAuthRoutes from './modules/auth/google.oauth.routes';
-// import usersRoutes from './modules/users/users.routes';
+import usersRoutes from './modules/users/users.routes';
 import postsRoutes from './modules/posts/posts.routes';
-// import uploadsRoutes from './modules/uploads/uploads.routes';
+import uploadsRoutes from './modules/uploads/uploads.routes';
+import { env } from './env';
 
 export const app = express();
+const apiV = env.API_PREFIX;
+console.log(apiV);
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(helmet());
@@ -24,10 +27,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.resolve('uploads')));
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
-app.use('/api/auth', authRoutes);
-app.use('/api/auth', googleAuthRoutes);
-// app.use('/api/users', usersRoutes);
-// app.use('/api/uploads', uploadsRoutes);
-app.use('/api/posts', postsRoutes);
+app.use(`${apiV}/auth`, authRoutes);
+app.use(`${apiV}/auth`, googleAuthRoutes);
+app.use(`${apiV}/users`, usersRoutes);
+app.use(`${apiV}/uploads`, uploadsRoutes);
+app.use(`${apiV}/posts`, postsRoutes);
 
 app.use(errorHandler);
