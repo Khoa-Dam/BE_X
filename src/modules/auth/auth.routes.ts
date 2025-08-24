@@ -6,7 +6,6 @@ const router = Router();
 
 router.post('/register', c.register);
 router.post('/login', c.login);
-router.get('/me', verifyAccessToken, c.me);
 router.post('/refresh', c.refresh);
 router.post('/logout', verifyAccessToken, c.logout);
 

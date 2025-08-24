@@ -24,10 +24,6 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     catch (e) { next(e); }
 }
 
-export const me = async (req: Request, res: Response, next: NextFunction) => {
-    try { res.json(success(await svc.me(req.user!.id))); }
-    catch (e) { next(e); }
-}
 
 export async function refresh(req: Request, res: Response, next: NextFunction) {
     try {

@@ -69,19 +69,6 @@ export const login = async (email: string, password: string) => {
 }
 
 
-export const me = async (userId: number) => {
-    const user = await UserModel.findById(userId).select('name email role avatarId createdAt');
-    if (!user) throw new AppError('NOT_FOUND', 'User not found', 404);
-    return {
-        id: user._id.toString(),
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatarId: user.avatarId ?? null,
-        createdAt: user.createdAt
-    };
-}
-
 export const refresh = async (oldRefresh: string) => {
     try {
         const payload = jwt.verify(oldRefresh, env.JWT_REFRESH_SECRET) as { id: string; exp: number };
