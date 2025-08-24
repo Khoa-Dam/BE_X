@@ -19,6 +19,11 @@ const envSchema = z.object({
     JWT_REFRESH_EXPIRES: z.coerce.number().default(2592000),
 
     UPLOAD_DIR: z.string().default("uploads"),
+
+    GOOGLE_CLIENT_ID: z.string().optional(),
+    GOOGLE_CLIENT_SECRET: z.string().optional(),
+    GOOGLE_CALLBACK_URI: z.string().optional(),
+
 });
 
 export const env = envSchema.parse(process.env);

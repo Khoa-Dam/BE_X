@@ -21,7 +21,6 @@ export class RefreshToken {
     @JoinColumn({ name: 'user_id' })
     user!: User;
 
-    // Lấy số FK user_id mà không tạo cột trùng
     @RelationId((rt: RefreshToken) => rt.user)
     userId!: number;
 
