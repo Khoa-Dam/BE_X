@@ -23,7 +23,7 @@ router.get('/google/callback', async (req, res, next) => {
     res.clearCookie(STATE_COOKIE);
 
     const { user } = await handleGoogleCallback(code);
-    const { accessToken, refreshToken } = await issueTokensForUserId(user.id);
+    const { accessToken, refreshToken } = await issueTokensForUserId(user._id.toString());
 
     res.cookie('access_token', accessToken, {
       httpOnly: true, sameSite: 'lax', secure: false,

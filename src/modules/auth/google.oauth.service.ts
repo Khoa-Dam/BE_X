@@ -1,8 +1,7 @@
 import crypto from 'crypto';
 import { OAuth2Client, TokenPayload } from 'google-auth-library';
-import { AppDataSource } from '../../db';
 import { env } from '../../env';
-import { User, Role, AuthProvider } from '../../entities/User';
+import { UserModel, Role, AuthProvider } from '../../models/User';
 import { AppError } from '../../utils/response';
 
 function createOAuthClient() {
@@ -42,17 +41,16 @@ async function verifyIdToken(idToken: string) {
 }
 
 async function upsertGoogleUser(p: TokenPayload) {
-    const repo = AppDataSource.getRepository(User);
-    let user = await repo.findOne({ where: { googleId: p.sub! } });
+    let user = await UserModel.findOne({ googleId: p.sub! });
     if (!user) {
-        user = await repo.findOne({ where: { email: p.email! } });
+        user = await UserModel.findOne({ email: p.email! });
         if (user) {
             user.googleId = p.sub!;
             user.provider = AuthProvider.GOOGLE;
             if (!user.name) user.name = p.name || p.email!;
-            await repo.save(user);
+            await user.save();
         } else {
-            user = repo.create({
+            user = await UserModel.create({
                 name: p.name || p.email!,
                 email: p.email!,
                 passwordHash: null,
@@ -60,7 +58,6 @@ async function upsertGoogleUser(p: TokenPayload) {
                 provider: AuthProvider.GOOGLE,
                 googleId: p.sub!,
             });
-            await repo.save(user);
         }
     }
     return user;

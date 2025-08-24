@@ -8,7 +8,7 @@ const CreateDto = z.object({
     title: z.string().min(3),
     content: z.string().optional(),
     status: z.enum(['DRAFT', 'PUBLISHED']).optional(),
-    coverId: z.number().int().optional().nullable()
+    coverId: z.string().regex(/^[a-fA-F0-9]{24}$/).optional().nullable()
 });
 const UpdateDto = CreateDto.partial();
 
@@ -23,18 +23,18 @@ export const list = async (req: Request, res: Response, next: NextFunction) => {
     } catch (e) { next(e); }
 }
 export const detail = async (req: Request, res: Response, next: NextFunction) => {
-    try { res.json(success(await svc.getById(Number(req.params.id)))); }
+    try { res.json(success(await svc.getById(String(req.params.id)))); }
     catch (e) { next(e); }
 }
 export const create = async (req: Request, res: Response, next: NextFunction) => {
-    try { const dto = CreateDto.parse(req.body); res.json(success(await svc.create(req.user!.id, dto))); }
+    try { const dto = CreateDto.parse(req.body); res.json(success(await svc.create(String(req.user!.id), dto))); }
     catch (e) { next(e); }
 }
 export const update = async (req: Request, res: Response, next: NextFunction) => {
-    try { const dto = UpdateDto.parse(req.body); res.json(success(await svc.update(Number(req.params.id), req.user!.id, dto))); }
+    try { const dto = UpdateDto.parse(req.body); res.json(success(await svc.update(String(req.params.id), String(req.user!.id), dto))); }
     catch (e) { next(e); }
 }
 export const remove = async (req: Request, res: Response, next: NextFunction) => {
-    try { await svc.remove(Number(req.params.id), req.user!.id); res.json(success(true)); }
+    try { await svc.remove(String(req.params.id), String(req.user!.id)); res.json(success(true)); }
     catch (e) { next(e); }
 }

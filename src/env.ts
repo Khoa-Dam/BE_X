@@ -7,11 +7,7 @@ const envSchema = z.object({
 
     PORT: z.coerce.number().default(3000),
 
-    PG_HOST: z.string(),
-    PG_PORT: z.coerce.number().default(5432),
-    PG_USER: z.string(),
-    PG_PASSWORD: z.string(),
-    PG_DB: z.string(),
+    MONGODB_URI: z.string().url(),
 
     JWT_ACCESS_SECRET: z.string().min(20),
     JWT_REFRESH_SECRET: z.string().min(20),

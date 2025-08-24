@@ -1,13 +1,13 @@
-import { Router } from "express";
-import { register, login, logout, me, refresh } from "./auth.controller";
-
+import { Router } from 'express';
+import * as c from './auth.controller';
+import { verifyAccessToken } from '../../middlewares/auth';
 
 const router = Router();
 
-router.post('/register', register)
-router.post('/login', login)
-router.post('/refresh', refresh)
-router.post('/logout', logout)
-router.get('/me', me)
+router.post('/register', c.register);
+router.post('/login', c.login);
+router.get('/me', verifyAccessToken, c.me);
+router.post('/refresh', c.refresh);
+router.post('/logout', verifyAccessToken, c.logout);
 
 export default router;

@@ -1,15 +1,14 @@
-import 'reflect-metadata';
 import { app } from './app';
 import { env } from './env';
-import { AppDataSource } from './db';
+import { connectDB } from './db';
 
 (async () => {
     try {
-        await AppDataSource.initialize();
-        console.log('✅ DataSource initialized');
+        await connectDB();
+        console.log('✅ MongoDB connected');
         app.listen(env.PORT, () => console.log(`🚀 http://localhost:${env.PORT}`));
     } catch (e) {
-        console.error('❌ DataSource init failed', e);
+        console.error('❌ Startup failed', e);
         process.exit(1);
     }
 })();
