@@ -23,6 +23,7 @@ export const register = async (name: string, email: string, password: string) =>
     const existed = await UserModel.findOne({ email });
     if (existed) throw new AppError('EMAIL_TAKEN', 'Email already registered', 409);
 
+
     const user = await UserModel.create({
         name,
         email,
@@ -90,7 +91,7 @@ export const refresh = async (oldRefresh: string) => {
     }
 }
 
-export async function logout(userId: number, oldRefresh?: string) {
+export async function logout(userId: string, oldRefresh?: string) {
     if (!oldRefresh) return true;
     await RefreshTokenModel.updateOne(
         { userId: new Types.ObjectId(userId), tokenHash: hashToken(oldRefresh), revoked: false },

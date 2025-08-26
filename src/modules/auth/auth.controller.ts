@@ -3,8 +3,15 @@ import { z } from 'zod';
 import * as svc from './auth.service';
 import { success } from '../../utils/response';
 
-const RegisterDto = z.object({ name: z.string().min(2), email: z.string().email(), password: z.string().min(6) });
-const LoginDto = z.object({ email: z.string().email(), password: z.string().min(6) });
+const RegisterDto = z.object({
+    name: z.string().min(2),
+    email: z.string().email(),
+    password: z.string().min(6)
+});
+const LoginDto = z.object({
+    email: z.string().email(),
+    password: z.string().min(6)
+});
 const RefreshDto = z.object({ refreshToken: z.string().min(10) });
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
