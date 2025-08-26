@@ -48,10 +48,10 @@ export const register = async (name: string, email: string, password: string) =>
 
 
 export const login = async (email: string, password: string) => {
-    const user = await UserModel.findOne({ email });
+    const user = await UserModel.findOne({ email }).select('+passwordHash');
     if (!user) throw new AppError('INVALID_CREDENTIALS', 'Email or password is incorrect', 401);
     if (user.provider === AuthProvider.GOOGLE || !user.passwordHash)
-        throw new AppError('LOGIN_WITH_GOOGLE', 'This account uses Google Sign-In. Use /auth/google.', 400);
+        throw new AppError('INVALID_CREDENTIALS', 'This account uses Google Sign-In. Use /auth/google.', 400);
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) throw new AppError('INVALID_CREDENTIALS', 'Email or password is incorrect', 401);
