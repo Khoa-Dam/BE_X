@@ -24,6 +24,11 @@ const envSchema = z.object({
 
     FRONTEND_URL: z.string().optional().default("http://localhost:3000"),
 
+    CLOUDINARY_CLOUD_NAME: z.string(),
+    CLOUDINARY_API_KEY: z.string(),
+    CLOUDINARY_API_SECRET: z.string(),
+    CLOUDINARY_FOLDER: z.string().default('uploads'),
+
 });
 
 export const env = envSchema.parse(process.env);
