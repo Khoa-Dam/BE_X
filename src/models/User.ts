@@ -16,10 +16,10 @@ export interface IUser {
     updatedAt: Date;
 }
 
-const userSchema = new Schema<IUser>({
+const userSchema = new Schema({
     name: { type: String, required: true, maxlength: 100 },
-    email: { type: String, required: true, maxlength: 191, unique: true, index: true },
-    passwordHash: { type: String, default: null },
+    email: { type: String, required: true, maxlength: 191, unique: true, index: true, lowercase: true, trim: true },
+    passwordHash: { type: String, default: null, select: false },
     role: { type: String, enum: Object.values(Role), default: Role.USER },
     googleId: { type: String, unique: true, sparse: true },
     provider: { type: String, enum: Object.values(AuthProvider), default: AuthProvider.LOCAL },

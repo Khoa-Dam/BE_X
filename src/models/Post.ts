@@ -14,7 +14,7 @@ export interface IPost {
     updatedAt: Date;
 }
 
-const postSchema = new Schema<IPost>({
+const postSchema = new Schema({
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     title: { type: String, required: true, maxlength: 200, index: true },
     slug: { type: String, required: true, maxlength: 220, unique: true },

@@ -10,7 +10,7 @@ export interface IFile {
     updatedAt: Date;
 }
 
-const fileSchema = new Schema<IFile>({
+const fileSchema = new Schema({
     filename: { type: String, required: true },
     path: { type: String, required: true },
     mime: String,
