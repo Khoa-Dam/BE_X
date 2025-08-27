@@ -32,8 +32,12 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
         const { user, accessToken, refreshToken } = await svc.register(name, email, password);
 
         setAuthCookies(res, accessToken, refreshToken, env.JWT_ACCESS_EXPIRES, env.JWT_REFRESH_EXPIRES);
+        console.log('✅ [REGISTER] Success for user:', email);
         return res.json(success(user));
-    } catch (e) { next(e); }
+    } catch (e) {
+        console.error('❌ [REGISTER] Lỗi:', e instanceof Error ? e.message : 'Unknown error');
+        next(e);
+    }
 }
 
 
@@ -43,8 +47,12 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
         const { user, accessToken, refreshToken } = await svc.login(email, password);
 
         setAuthCookies(res, accessToken, refreshToken, env.JWT_ACCESS_EXPIRES, env.JWT_REFRESH_EXPIRES);
+        console.log('✅ [LOGIN] Success for user:', email);
         return res.json(success(user));
-    } catch (e) { next(e); }
+    } catch (e) {
+        console.error('❌ [LOGIN] Lỗi:', e instanceof Error ? e.message : 'Unknown error');
+        next(e);
+    }
 }
 
 
@@ -53,14 +61,27 @@ export const refresh = async (req: Request, res: Response, next: NextFunction) =
         const fromCookie = req.cookies?.[COOKIE_REFRESH] as string | undefined;
         const fromBody = req.body?.refreshToken as string | undefined;
         const token = fromCookie ?? fromBody;
-        if (!token) return res.status(400).json({ success: false, data: null, error: { code: 'NO_REFRESH', message: 'Missing refresh token' } });
+
+        if (!token) {
+            console.log('❌ [REFRESH] No refresh token found');
+            return res.status(400).json({
+                success: false,
+                data: null,
+                error: {
+                    code: 'NO_REFRESH',
+                    message: 'Missing refresh token'
+                }
+            });
+        }
 
         const out = await refreshRotate(token);
-
         setAuthCookies(res, out.accessToken, out.refreshToken, env.JWT_ACCESS_EXPIRES, env.JWT_REFRESH_EXPIRES);
-
+        console.log('✅ [REFRESH] Success for user:', out.user.email);
         return res.json(success(out.user));
-    } catch (e) { next(e); }
+    } catch (e) {
+        console.error('❌ [REFRESH] Lỗi:', e instanceof Error ? e.message : 'Unknown error');
+        next(e);
+    }
 }
 
 export const logout = async (req: Request, res: Response, next: NextFunction) => {
@@ -76,6 +97,10 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
         clearAuthCookies(res);
         res.clearCookie('g_oauth_state', { ...baseCookieOpts });
 
+        console.log('✅ [LOGOUT] Success ');
         return res.json(success(true));
-    } catch (e) { next(e); }
+    } catch (e) {
+        console.error('❌ [LOGOUT] Lỗi:', e instanceof Error ? e.message : 'Unknown error');
+        next(e);
+    }
 }

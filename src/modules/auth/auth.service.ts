@@ -75,7 +75,9 @@ export async function refreshRotate(oldRefresh: string) {
     let decoded: { id: string; exp: number };
     try {
         decoded = jwt.verify(oldRefresh, env.JWT_REFRESH_SECRET) as any;
-    } catch {
+        console.log('✅ [REFRESH_ROTATE] JWT verification successful');
+    } catch (jwtError) {
+        console.error('❌ [REFRESH_ROTATE] JWT verification failed:', jwtError instanceof Error ? jwtError.message : 'Unknown JWT error');
         throw new AppError('UNAUTHORIZED', 'Invalid refresh token', 401);
     }
 
@@ -85,31 +87,49 @@ export async function refreshRotate(oldRefresh: string) {
         tokenHash: hashToken(oldRefresh),
         revoked: false
     });
-    if (!row) throw new AppError('UNAUTHORIZED', 'Refresh token revoked/unknown', 401);
-    if (dayjs(row.expiresAt).isBefore(dayjs()))
+
+    if (!row) {
+        console.error('❌ [REFRESH_ROTATE] Token not found or revoked');
+        throw new AppError('UNAUTHORIZED', 'Refresh token revoked/unknown', 401);
+    }
+
+    if (dayjs(row.expiresAt).isBefore(dayjs())) {
+        console.error('❌ [REFRESH_ROTATE] Token expired');
         throw new AppError('UNAUTHORIZED', 'Refresh token expired', 401);
+    }
+
+    console.log('✅ [REFRESH_ROTATE] Token validation successful');
 
     // 3) Lấy user
     const u = await UserModel.findById(decoded.id);
-    if (!u) throw new AppError('UNAUTHORIZED', 'User not found', 401);
+    if (!u) {
+        console.error('❌ [REFRESH_ROTATE] User not found');
+        throw new AppError('UNAUTHORIZED', 'User not found', 401);
+    }
+    console.log('✅ [REFRESH_ROTATE] User found:', u.email);
 
     // 4) Phát token mới (access + refresh), revoke cái cũ
     const payload: JwtPayload = { id: String(u._id), email: u.email, name: u.name, role: u.role };
     const accessToken = signAccess(payload);
     const refreshToken = signRefresh({ id: String(u._id) });
+    console.log('✅ [REFRESH_ROTATE] New tokens generated');
 
     // revoke cũ + lưu mới (hash)
     row.revoked = true;
     await row.save();
+    console.log('✅ [REFRESH_ROTATE] Old token revoked');
+
     await RefreshTokenModel.create({
         userId: u._id,
         tokenHash: hashToken(refreshToken),
         revoked: false,
         expiresAt: dayjs().add(env.JWT_REFRESH_EXPIRES, 'second').toDate()
     });
+    console.log('✅ [REFRESH_ROTATE] New refresh token saved');
 
     // 5) Trả dữ liệu
     const user = { id: String(u._id), email: u.email, name: u.name, role: u.role };
+    console.log('✅ [REFRESH_ROTATE] Token rotation completed for:', u.email);
     return { user, accessToken, refreshToken };
 }
 
