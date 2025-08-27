@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import * as svc from './auth.service';
 import { success } from '../../utils/response';
+import { clearAuthCookies, baseCookieOpts, COOKIE_REFRESH, setAuthCookies } from '../../utils/cookies';
+import { env } from '../../env';
+import { refreshRotate } from './auth.service';
 
 const passwordSchema = z.string()
     .min(8, 'Password must be at least 8 characters')
@@ -25,33 +28,54 @@ const RefreshDto = z.object({ refreshToken: z.string().min(10) });
 
 export const register = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const dto = RegisterDto.parse(req.body);
-        res.json(success(await svc.register(dto.name, dto.email, dto.password)));
-    }
-    catch (e) { next(e); }
+        const { name, email, password } = RegisterDto.parse(req.body);
+        const { user, accessToken, refreshToken } = await svc.register(name, email, password);
+
+        setAuthCookies(res, accessToken, refreshToken, env.JWT_ACCESS_EXPIRES, env.JWT_REFRESH_EXPIRES);
+        return res.json(success(user));
+    } catch (e) { next(e); }
 }
 
 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const dto = LoginDto.parse(req.body);
-        res.json(success(await svc.login(dto.email, dto.password)));
-    }
-    catch (e) { next(e); }
+        const { email, password } = LoginDto.parse(req.body);
+        const { user, accessToken, refreshToken } = await svc.login(email, password);
+
+        setAuthCookies(res, accessToken, refreshToken, env.JWT_ACCESS_EXPIRES, env.JWT_REFRESH_EXPIRES);
+        return res.json(success(user));
+    } catch (e) { next(e); }
 }
 
 
-export async function refresh(req: Request, res: Response, next: NextFunction) {
+export const refresh = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { refreshToken } = RefreshDto.parse(req.body);
-        res.json(success(await svc.refresh(refreshToken)));
-    }
-    catch (e) { next(e); }
+        const fromCookie = req.cookies?.[COOKIE_REFRESH] as string | undefined;
+        const fromBody = req.body?.refreshToken as string | undefined;
+        const token = fromCookie ?? fromBody;
+        if (!token) return res.status(400).json({ success: false, data: null, error: { code: 'NO_REFRESH', message: 'Missing refresh token' } });
+
+        const out = await refreshRotate(token);
+
+        setAuthCookies(res, out.accessToken, out.refreshToken, env.JWT_ACCESS_EXPIRES, env.JWT_REFRESH_EXPIRES);
+
+        return res.json(success(out.user));
+    } catch (e) { next(e); }
 }
-export async function logout(req: Request, res: Response, next: NextFunction) {
+
+export const logout = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const rt = (req.body?.refreshToken as string | undefined);
-        await svc.logout(req.user!.id, rt); res.json(success(true));
-    }
-    catch (e) { next(e); }
+        const rtFromBody = req.body?.refreshToken as string | undefined;
+        const rtFromCookie = req.cookies?.[COOKIE_REFRESH] as string | undefined;
+        const refreshToken = rtFromBody ?? rtFromCookie;
+
+        if (req.user?.id && refreshToken) {
+            await svc.logout(req.user.id, refreshToken);
+        }
+
+        clearAuthCookies(res);
+        res.clearCookie('g_oauth_state', { ...baseCookieOpts });
+
+        return res.json(success(true));
+    } catch (e) { next(e); }
 }

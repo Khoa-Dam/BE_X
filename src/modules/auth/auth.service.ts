@@ -70,25 +70,47 @@ export const login = async (email: string, password: string) => {
 }
 
 
-export const refresh = async (oldRefresh: string) => {
+export async function refreshRotate(oldRefresh: string) {
+    // 1) Xác thực chữ ký JWT refresh
+    let decoded: { id: string; exp: number };
     try {
-        const payload = jwt.verify(oldRefresh, env.JWT_REFRESH_SECRET) as { id: string; exp: number };
-        const row = await RefreshTokenModel.findOne({
-            userId: new Types.ObjectId(payload.id),
-            tokenHash: hashToken(oldRefresh),
-            revoked: false
-        });
-        if (!row) throw new AppError('UNAUTHORIZED', 'Refresh token revoked/unknown', 401);
-        if (dayjs(row.expiresAt).isBefore(dayjs())) throw new AppError('UNAUTHORIZED', 'Refresh token expired', 401);
-
-        const u = await UserModel.findById(payload.id);
-        if (!u) throw new AppError('UNAUTHORIZED', 'User not found', 401);
-
-        const accessToken = signAccess({ id: u._id.toString(), email: u.email, name: u.name, role: u.role });
-        return { accessToken };
+        decoded = jwt.verify(oldRefresh, env.JWT_REFRESH_SECRET) as any;
     } catch {
         throw new AppError('UNAUTHORIZED', 'Invalid refresh token', 401);
     }
+
+    // 2) Kiểm tra DB: token còn hiệu lực & chưa revoke?
+    const row = await RefreshTokenModel.findOne({
+        userId: new Types.ObjectId(decoded.id),
+        tokenHash: hashToken(oldRefresh),
+        revoked: false
+    });
+    if (!row) throw new AppError('UNAUTHORIZED', 'Refresh token revoked/unknown', 401);
+    if (dayjs(row.expiresAt).isBefore(dayjs()))
+        throw new AppError('UNAUTHORIZED', 'Refresh token expired', 401);
+
+    // 3) Lấy user
+    const u = await UserModel.findById(decoded.id);
+    if (!u) throw new AppError('UNAUTHORIZED', 'User not found', 401);
+
+    // 4) Phát token mới (access + refresh), revoke cái cũ
+    const payload: JwtPayload = { id: String(u._id), email: u.email, name: u.name, role: u.role };
+    const accessToken = signAccess(payload);
+    const refreshToken = signRefresh({ id: String(u._id) });
+
+    // revoke cũ + lưu mới (hash)
+    row.revoked = true;
+    await row.save();
+    await RefreshTokenModel.create({
+        userId: u._id,
+        tokenHash: hashToken(refreshToken),
+        revoked: false,
+        expiresAt: dayjs().add(env.JWT_REFRESH_EXPIRES, 'second').toDate()
+    });
+
+    // 5) Trả dữ liệu
+    const user = { id: String(u._id), email: u.email, name: u.name, role: u.role };
+    return { user, accessToken, refreshToken };
 }
 
 export async function logout(userId: string, oldRefresh?: string) {
