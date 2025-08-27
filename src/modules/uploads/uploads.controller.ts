@@ -1,33 +1,49 @@
 import { Request, Response, NextFunction } from 'express';
+import { Types } from 'mongoose';
+import { success, AppError } from '../../utils/response';
+import { FilesService } from '../../services/files.service';
 import { FileModel } from '../../models/File';
-import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
-import { success } from '../../utils/response';
 
-const sha256 = (p: string) => { const h = crypto.createHash('sha256'); h.update(fs.readFileSync(p)); return h.digest('hex'); };
-
-export const upload = async (req: Request, res: Response, next: NextFunction) => {
+export async function uploadMultipart(req: Request, res: Response, next: NextFunction) {
     try {
-        const f = req.file!;
-        const abs = path.resolve(f.path);
-        const hash = sha256(abs);
-
-        const row = await FileModel.create({
-            filename: f.originalname,
-            path: f.path.replace(/\\/g, '/'),
-            mime: f.mimetype,
-            size: f.size,
-            sha256: hash
+        if (!req.file) throw new AppError('NO_FILE', 'Missing file', 400);
+        const { dto } = await FilesService.uploadBufferAndCreate({
+            buffer: req.file.buffer,
+            originalname: req.file.originalname,
+            mimetype: req.file.mimetype,
+            size: req.file.size
         });
+        res.json(success(dto));
+    } catch (e) { next(e); }
+}
 
+export async function getFileMeta(req: Request, res: Response, next: NextFunction) {
+    try {
+        const { id } = req.params;
+        if (!Types.ObjectId.isValid(id)) throw new AppError('BAD_ID', 'Invalid id', 400);
+        const row = await FileModel.findById(id).lean();
+        if (!row) throw new AppError('NOT_FOUND', 'File not found', 404);
         res.json(success({
-            id: row._id.toString(),
+            id: String(row._id),
             filename: row.filename,
-            url: `/${row.path}`,
+            url: row.secureUrl,
             mime: row.mime,
             size: row.size,
-            sha256: row.sha256
+            provider: row.provider,
+            publicId: row.publicId,
+            width: row.width,
+            height: row.height,
+            createdAt: row.createdAt
         }));
+    } catch (e) { next(e); }
+}
+
+export async function deleteFile(req: Request, res: Response, next: NextFunction) {
+    try {
+        const { id } = req.params;
+        if (!Types.ObjectId.isValid(id)) throw new AppError('BAD_ID', 'Invalid id', 400);
+        const ok = await FilesService.deleteById(id);
+        if (!ok) throw new AppError('NOT_FOUND', 'File not found', 404);
+        res.json(success(true));
     } catch (e) { next(e); }
 }

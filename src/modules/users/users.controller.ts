@@ -1,18 +1,33 @@
 import { Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import * as svc from './users.service';
-import { success } from '../../utils/response';
+import { success, AppError } from '../../utils/response';
+import { UsersService } from './users.service';
 
-const UpdateMeDto = z.object({
-    name: z.string().min(2).optional(),
-    avatarId: z.string().regex(/^[a-fA-F0-9]{24}$/).nullable().optional()
-});
-
-export const getMe = async (req: Request, res: Response, next: NextFunction) => {
-    console.log(req.user);
-    try { res.json(success(await svc.getMe(String(req.user!.id)))); } catch (e) { next(e); }
+export async function getMe(req: Request, res: Response, next: NextFunction) {
+    try { res.json(success(await UsersService.getMe(req.user!.id))); }
+    catch (e) { next(e); }
 }
-export const updateMe = async (req: Request, res: Response, next: NextFunction) => {
-    try { const dto = UpdateMeDto.parse(req.body); res.json(success(await svc.updateMe(String(req.user!.id), dto))); }
+
+const UpdateMeDto = z.object({ name: z.string().trim().min(2).max(100).optional() });
+export async function updateMe(req: Request, res: Response, next: NextFunction) {
+    try { res.json(success(await UsersService.updateMe(req.user!.id, UpdateMeDto.parse(req.body)))); }
+    catch (e) { next(e); }
+}
+
+export async function uploadAvatar(req: Request, res: Response, next: NextFunction) {
+    try {
+        if (!req.file) throw new AppError('NO_FILE', 'Missing file', 400);
+        const result = await UsersService.setAvatarFromBuffer(req.user!.id, {
+            buffer: req.file.buffer,
+            originalname: req.file.originalname,
+            mimetype: req.file.mimetype,
+            size: req.file.size
+        });
+        res.json(success({ user: { id: req.user!.id, avatarId: result.avatarId, avatarUrl: result.avatarUrl }, file: result.avatar }));
+    } catch (e) { next(e); }
+}
+
+export async function removeAvatar(req: Request, res: Response, next: NextFunction) {
+    try { await UsersService.clearAvatar(req.user!.id); res.json(success(true)); }
     catch (e) { next(e); }
 }

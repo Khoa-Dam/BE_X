@@ -42,7 +42,7 @@ fileSchema.set('toJSON', {
     virtuals: true,
     versionKey: false,
     transform: (_doc, ret) => {
-        const { _id, __v, ...rest } = ret as any; // ret là any để TS không cằn nhằn
+        const { _id, __v, ...rest } = ret as any;
         return { id: _id?.toString?.() ?? String(_id), ...rest };
     }
 });

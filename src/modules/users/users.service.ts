@@ -1,34 +1,75 @@
+import { Types } from 'mongoose';
+import { FilesService, UploadMeta } from '../../services/files.service';
 import { UserModel } from '../../models/User';
-import { FileModel } from '../../models/File';
 import { AppError } from '../../utils/response';
 
-export const getMe = async (userId: string) => {
-    const u = await UserModel.findById(userId).populate('avatarId');
-    if (!u) throw new AppError('NOT_FOUND', 'User not found', 404);
+export const UsersService = {
+    async getMe(userId: string) {
+        const user = await UserModel.findById(userId)
+            .populate('avatarId', 'secureUrl mime size')
+            .select('name email role avatarId')
+            .lean();
 
-    const avatar = u.avatarId
-        ? { id: (u.avatarId as any)._id.toString(), url: `/${(u.avatarId as any).path}`, mime: (u.avatarId as any).mime, size: (u.avatarId as any).size }
-        : null;
+        if (!user) throw new AppError('NOT_FOUND', 'User not found', 404);
+        return {
+            id: String(user._id),
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            avatar: user.avatarId ? {
+                id: String((user as any).avatarId._id),
+                url: (user as any).avatarId.secureUrl,
+                mime: (user as any).avatarId.mime,
+                size: (user as any).avatarId.size
+            } : null
+        };
+    },
 
-    return { id: u._id.toString(), name: u.name, email: u.email, role: u.role, createdAt: u.createdAt, avatar };
-}
+    async updateMe(userId: string, dto: { name?: string }) {
+        const update: any = {};
+        if (dto.name !== undefined) update.name = dto.name;
 
-export const updateMe = async (userId: string, dto: { name?: string; avatarId?: string | null }) => {
-    const user = await UserModel.findById(userId);
-    if (!user) throw new AppError('NOT_FOUND', 'User not found', 404);
+        const user = await UserModel.findByIdAndUpdate(
+            userId, update, { new: true, projection: 'name email role avatarId' }
+        ).populate('avatarId', 'secureUrl');
 
-    if (dto.name !== undefined) user.name = dto.name;
+        if (!user) throw new AppError('NOT_FOUND', 'User not found', 404);
 
-    if (dto.avatarId !== undefined) {
-        if (dto.avatarId === null) {
-            user.avatarId = null;
-        } else {
-            const file = await FileModel.findById(dto.avatarId);
-            if (!file) throw new AppError('NOT_FOUND', 'Avatar file not found', 404);
-            user.avatarId = file._id;
+        return {
+            id: user.id, name: user.name, email: user.email, role: user.role,
+            avatar: user.avatarId ? { id: String((user as any).avatarId._id), url: (user as any).avatarId.secureUrl } : null
+        };
+    },
+
+    /** Upload avatar mới → set avatarId → xoá avatar cũ (nếu có) */
+    async setAvatarFromBuffer(userId: string, meta: UploadMeta) {
+        if (!/^image\//.test(meta.mimetype)) throw new AppError('BAD_FILE', 'Only image/* allowed', 415);
+
+        const { doc: newFile, dto } = await FilesService.uploadBufferAndCreate(meta, 'uploads/avatars');
+
+        const me = await UserModel.findById(userId).select('avatarId').lean();
+        if (!me) {
+            await FilesService.deleteById(String(newFile._id)); // rollback cả file
+            throw new AppError('NOT_FOUND', 'User not found', 404);
         }
-    }
+        const oldAvatarId: Types.ObjectId | null = (me as any).avatarId ?? null;
 
-    await user.save();
-    return getMe(user._id.toString());
-}
+        await UserModel.updateOne({ _id: userId }, { $set: { avatarId: newFile._id } });
+
+        if (oldAvatarId) await FilesService.deleteById(String(oldAvatarId));
+
+        return { avatar: dto, avatarId: dto.id, avatarUrl: dto.url };
+    },
+
+    /** Clear avatar hiện tại (xoá file cũ + unset avatarId) */
+    async clearAvatar(userId: string) {
+        const me = await UserModel.findById(userId).select('avatarId').lean();
+        if (!me) throw new AppError('NOT_FOUND', 'User not found', 404);
+        const oldAvatarId: Types.ObjectId | null = (me as any).avatarId ?? null;
+
+        await UserModel.updateOne({ _id: userId }, { $set: { avatarId: null } });
+        if (oldAvatarId) await FilesService.deleteById(String(oldAvatarId));
+
+        return true;
+    }
+};
