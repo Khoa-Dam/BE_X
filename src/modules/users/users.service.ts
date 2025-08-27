@@ -61,15 +61,5 @@ export const UsersService = {
         return { avatar: dto, avatarId: dto.id, avatarUrl: dto.url };
     },
 
-    /** Clear avatar hiện tại (xoá file cũ + unset avatarId) */
-    async clearAvatar(userId: string) {
-        const me = await UserModel.findById(userId).select('avatarId').lean();
-        if (!me) throw new AppError('NOT_FOUND', 'User not found', 404);
-        const oldAvatarId: Types.ObjectId | null = (me as any).avatarId ?? null;
 
-        await UserModel.updateOne({ _id: userId }, { $set: { avatarId: null } });
-        if (oldAvatarId) await FilesService.deleteById(String(oldAvatarId));
-
-        return true;
-    }
 };

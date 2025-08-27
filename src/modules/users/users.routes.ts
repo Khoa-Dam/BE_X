@@ -20,7 +20,6 @@ router.patch('/me', verifyAccessToken, ctrl.updateMe);
 // Upload avatar: upload -> gán avatarId -> xoá avatar cũ (nếu có)
 router.post('/me/avatar', verifyAccessToken, upload.single('file'), ctrl.uploadAvatar);
 
-// Bỏ avatar hiện tại (xoá file cũ + clear avatarId)
-router.delete('/me/avatar', verifyAccessToken, ctrl.removeAvatar);
+
 
 export default router;

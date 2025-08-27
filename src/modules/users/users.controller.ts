@@ -27,7 +27,3 @@ export async function uploadAvatar(req: Request, res: Response, next: NextFuncti
     } catch (e) { next(e); }
 }
 
-export async function removeAvatar(req: Request, res: Response, next: NextFunction) {
-    try { await UsersService.clearAvatar(req.user!.id); res.json(success(true)); }
-    catch (e) { next(e); }
-}
