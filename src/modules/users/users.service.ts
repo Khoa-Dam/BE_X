@@ -14,14 +14,14 @@ const pickFileUrl = (f: any): string | null => {
 const toPublicUser = (doc: any) => {
     const o = doc.toObject ? doc.toObject() : doc;
     const avatarUrl = pickFileUrl(o.avatarId);
-    const backgroundUrl = pickFileUrl(o.backgroundAvatar);
+    const backgroundUrl = pickFileUrl(o.backgroundAvatarId);
 
     return {
         ...o,
         id: o._id?.toString?.() ?? String(o._id),
         // vẫn trả id của file để client dùng khi cần
         avatarId: o.avatarId?._id ?? o.avatarId ?? null,
-        backgroundAvatar: o.backgroundAvatar?._id ?? o.backgroundAvatar ?? null,
+        backgroundAvatarId: o.backgroundAvatarId?._id ?? o.backgroundAvatarId ?? null,
         // URL thống nhất
         avatarUrl,
         backgroundUrl,
@@ -43,7 +43,7 @@ type UpdateProfileInput = {
     location?: string;
     username?: string;
     avatarId?: string | null;
-    backgroundAvatar?: string | null;
+    backgroundAvatarId?: string | null;
 };
 
 export const updateProfile = async (userId: string, dto: UpdateProfileInput) => {
@@ -76,14 +76,14 @@ export const updateProfile = async (userId: string, dto: UpdateProfileInput) => 
     }
 
     // backgroundAvatar liên kết trực tiếp (set/null)
-    if (dto.backgroundAvatar !== undefined) {
-        if (dto.backgroundAvatar === null) {
-            user.backgroundAvatar = null;
+    if (dto.backgroundAvatarId !== undefined) {
+        if (dto.backgroundAvatarId === null) {
+            user.backgroundAvatarId = null;
         } else {
-            if (!Types.ObjectId.isValid(dto.backgroundAvatar)) throw new AppError('BAD_ID', 'Invalid backgroundAvatar', 400);
-            const f = await FileModel.findById(dto.backgroundAvatar);
+            if (!Types.ObjectId.isValid(dto.backgroundAvatarId)) throw new AppError('BAD_ID', 'Invalid backgroundAvatarId', 400);
+            const f = await FileModel.findById(dto.backgroundAvatarId);
             if (!f) throw new AppError('NOT_FOUND', 'Background file not found', 404);
-            user.backgroundAvatar = f._id;
+            user.backgroundAvatarId = f._id;
         }
     }
 
@@ -92,7 +92,7 @@ export const updateProfile = async (userId: string, dto: UpdateProfileInput) => 
     // Lấy lại với populate để trả URL thống nhất
     const fresh = await UserModel.findById(user._id)
         .populate({ path: 'avatarId', select: '_id secureUrl url filename mime size' })
-        .populate({ path: 'backgroundAvatar', select: '_id secureUrl url filename mime size' });
+        .populate({ path: 'backgroundAvatarId', select: '_id secureUrl url filename mime size' });
 
     return toPublicUser(fresh!);
 };
@@ -114,7 +114,7 @@ export const setAvatarFromBuffer = async (userId: string, file: Express.Multer.F
 
     const fresh = await UserModel.findById(user._id)
         .populate({ path: 'avatarId', select: '_id secureUrl url filename mime size' })
-        .populate({ path: 'backgroundAvatar', select: '_id secureUrl url filename mime size' });
+        .populate({ path: 'backgroundAvatarId', select: '_id secureUrl url filename mime size' });
 
     return toPublicUser(fresh!);
 };
@@ -131,12 +131,12 @@ export const setBackgroundFromBuffer = async (userId: string, file: Express.Mult
         size: file.size
     });
 
-    user.backgroundAvatar = new Types.ObjectId(dto.id);
+    user.backgroundAvatarId = new Types.ObjectId(dto.id);
     await user.save();
 
     const fresh = await UserModel.findById(user._id)
         .populate({ path: 'avatarId', select: '_id secureUrl url filename mime size' })
-        .populate({ path: 'backgroundAvatar', select: '_id secureUrl url filename mime size' });
+        .populate({ path: 'backgroundAvatarId', select: '_id secureUrl url filename mime size' });
 
     return toPublicUser(fresh!);
 };
