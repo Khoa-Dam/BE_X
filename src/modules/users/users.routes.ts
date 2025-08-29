@@ -12,14 +12,15 @@ const upload = multer({
 });
 
 // Lấy thông tin user hiện tại
-router.get('/me', verifyAccessToken, ctrl.getMe);
+router.get('/me', verifyAccessToken, ctrl.me);
 
-// Cập nhật thông tin cơ bản (ví dụ: name)
+// Cập nhật thông tin cơ bản (name, bio, occupation, location, username, avatarId/backgroundAvatar = null để xoá link)
 router.patch('/me', verifyAccessToken, ctrl.updateMe);
 
-// Upload avatar: upload -> gán avatarId -> xoá avatar cũ (nếu có)
+// Upload avatar: upload -> gán avatarId
 router.post('/me/avatar', verifyAccessToken, upload.single('file'), ctrl.uploadAvatar);
 
-
+// Upload background: upload -> gán backgroundAvatar
+router.post('/me/background', verifyAccessToken, upload.single('file'), ctrl.uploadBackground);
 
 export default router;

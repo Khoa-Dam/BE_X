@@ -6,6 +6,44 @@ import './App.css';
 axios.defaults.baseURL = 'http://localhost:4000/api/v1';
 axios.defaults.withCredentials = true;
 
+// Helper: lấy URL file từ id (nếu chưa populate)
+async function fetchFileUrl(fileId) {
+    if (!fileId) return null;
+    try {
+        const r = await axios.get(`/uploads/${fileId}`);
+        return r?.data?.data?.secureUrl || r?.data?.data?.url || null;
+    } catch { return null; }
+}
+
+// Helper: chuẩn hoá avatar tác giả từ nhiều shape khác nhau
+async function normalizeAuthorAvatar(post) {
+    const a = post?.author;
+    if (!a) return null;
+    // Ưu tiên các trường URL sẵn có từ BE mới
+    if (a.avatarUrl) return a.avatarUrl;
+    if (a.avatar?.url) return a.avatar.url;
+    if (a.avatarId?.secureUrl) return a.avatarId.secureUrl;
+
+    // Nếu chỉ có id
+    if (typeof a.avatarId === 'string') return await fetchFileUrl(a.avatarId);
+    if (a.avatarId?._id) return await fetchFileUrl(a.avatarId._id);
+    return null;
+}
+
+// Helper: chuẩn hoá danh sách ảnh của post -> [{ id, url }]
+async function normalizePostImages(post) {
+    // Trường hợp backend trả về images (đã populate)
+    if (Array.isArray(post.images) && post.images.length) {
+        return post.images.map((img) => ({ id: String(img.id || img._id), url: img.secureUrl || img.url })).filter(x => x.url);
+    }
+    // Trường hợp backend chỉ trả imageIds (id thuần)
+    if (Array.isArray(post.imageIds) && post.imageIds.length) {
+        const urls = await Promise.all(post.imageIds.map((id) => fetchFileUrl(typeof id === 'string' ? id : id?._id)));
+        return urls.map((url, idx) => url ? ({ id: String(post.imageIds[idx]), url }) : null).filter(Boolean);
+    }
+    return [];
+}
+
 // Axios interceptor: tự động refresh khi gặp 401 một lần
 let isRefreshing = false;
 let subscribers = [];
@@ -162,9 +200,15 @@ function App() {
             const sort = document.getElementById('sortPosts')?.value || 'createdAt';
             const order = document.getElementById('orderPosts')?.value || 'desc';
             const res = await axios.get('/posts', { params: { page: currentPage, limit: 10, search, sort, order } });
-            console.log('[POSTS LIST] response:', res.data);
             if (res.data.success) {
-                setPosts(res.data.data);
+                const raw = res.data.data || [];
+                // Chuẩn hoá ảnh & avatar cho mỗi post
+                const normalized = await Promise.all(raw.map(async (p) => ({
+                    ...p,
+                    imagesNormalized: await normalizePostImages(p),
+                    authorAvatarUrl: await normalizeAuthorAvatar(p)
+                })));
+                setPosts(normalized);
                 setTotalPages(Math.ceil(res.data.meta.total / 10));
                 handleResponse(res.data);
             }
@@ -472,10 +516,29 @@ function App() {
                             <h3>📋 Danh sách bài viết</h3>
                             {posts.map((post) => (
                                 <div key={post._id || post.id} className="post-item">
-                                    <h5>{post.title}</h5>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        {post.authorAvatarUrl && (
+                                            <img src={post.authorAvatarUrl} alt="avatar" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+                                        )}
+                                        <div>
+                                            <h5 style={{ margin: 0 }}>{post.title}</h5>
+                                            <div className="meta" style={{ marginTop: 2 }}>
+                                                <strong>Author:</strong> {post.author?.name || 'Unknown'}
+                                            </div>
+                                        </div>
+                                    </div>
                                     <p>{post.content}</p>
                                     {/* Hiển thị tất cả ảnh */}
-                                    {Array.isArray(post.images) && post.images.length > 0 ? (
+                                    {Array.isArray(post.imagesNormalized) && post.imagesNormalized.length > 0 ? (
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
+                                            {post.imagesNormalized.map((img) => (
+                                                <div key={img.id} style={{ textAlign: 'center' }}>
+                                                    <img src={img.url} alt={img.id} style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 6 }} />
+                                                    <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>ID: {img.id}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : Array.isArray(post.images) && post.images.length > 0 ? (
                                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
                                             {post.images.map((img) => (
                                                 <div key={img.id || img._id} style={{ textAlign: 'center' }}>
@@ -488,7 +551,7 @@ function App() {
                                         <div className="meta">Không có ảnh</div>
                                     )}
                                     <div className="meta">
-                                        <strong>Status:</strong> {post.status} | <strong>Created:</strong> {new Date(post.createdAt).toLocaleString()} | <strong>Author:</strong> {post.author?.name || 'Unknown'}
+                                        <strong>Status:</strong> {post.status} | <strong>Created:</strong> {new Date(post.createdAt).toLocaleString()}
                                     </div>
                                 </div>
                             ))}

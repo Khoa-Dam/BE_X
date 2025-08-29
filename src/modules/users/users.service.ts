@@ -1,65 +1,142 @@
 import { Types } from 'mongoose';
-import { FilesService, UploadMeta } from '../../services/files.service';
 import { UserModel } from '../../models/User';
+import { FileModel } from '../../models/File';
 import { AppError } from '../../utils/response';
+import { FilesService } from '../../services/files.service';
 
-export const UsersService = {
-    async getMe(userId: string) {
-        const user = await UserModel.findById(userId)
-            .populate('avatarId', 'secureUrl mime size')
-            .select('name email role avatarId')
-            .lean();
+// Helper chuẩn hoá URL từ tài liệu File (hỗ trợ cả secureUrl và url)
+const pickFileUrl = (f: any): string | null => {
+    if (!f) return null;
+    return f.secureUrl ?? f.url ?? null;
+};
 
-        if (!user) throw new AppError('NOT_FOUND', 'User not found', 404);
-        return {
-            id: String(user._id),
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            avatar: user.avatarId ? {
-                id: String((user as any).avatarId._id),
-                url: (user as any).avatarId.secureUrl,
-                mime: (user as any).avatarId.mime,
-                size: (user as any).avatarId.size
-            } : null
-        };
-    },
+// Chuẩn hoá shape trả về của user + bổ sung avatarUrl/backgroundUrl
+const toPublicUser = (doc: any) => {
+    const o = doc.toObject ? doc.toObject() : doc;
+    const avatarUrl = pickFileUrl(o.avatarId);
+    const backgroundUrl = pickFileUrl(o.backgroundAvatar);
 
-    async updateMe(userId: string, dto: { name?: string }) {
-        const update: any = {};
-        if (dto.name !== undefined) update.name = dto.name;
+    return {
+        ...o,
+        id: o._id?.toString?.() ?? String(o._id),
+        // vẫn trả id của file để client dùng khi cần
+        avatarId: o.avatarId?._id ?? o.avatarId ?? null,
+        backgroundAvatar: o.backgroundAvatar?._id ?? o.backgroundAvatar ?? null,
+        // URL thống nhất
+        avatarUrl,
+        backgroundUrl,
+    };
+};
 
-        const user = await UserModel.findByIdAndUpdate(
-            userId, update, { new: true, projection: 'name email role avatarId' }
-        ).populate('avatarId', 'secureUrl');
+export const me = async (userId: string) => {
+    const user = await UserModel.findById(userId)
+        .populate({ path: 'avatarId', select: '_id secureUrl url filename mime size' })
+        .populate({ path: 'backgroundAvatarId', select: '_id secureUrl url filename mime size' });
+    if (!user) throw new AppError('UNAUTHORIZED', 'User not found', 401);
+    return toPublicUser(user);
+};
 
-        if (!user) throw new AppError('NOT_FOUND', 'User not found', 404);
+type UpdateProfileInput = {
+    name?: string;
+    bio?: string;
+    occupation?: string;
+    location?: string;
+    username?: string;
+    avatarId?: string | null;
+    backgroundAvatar?: string | null;
+};
 
-        return {
-            id: user.id, name: user.name, email: user.email, role: user.role,
-            avatar: user.avatarId ? { id: String((user as any).avatarId._id), url: (user as any).avatarId.secureUrl } : null
-        };
-    },
+export const updateProfile = async (userId: string, dto: UpdateProfileInput) => {
+    const user = await UserModel.findById(userId);
+    if (!user) throw new AppError('UNAUTHORIZED', 'User not found', 401);
 
-    /** Upload avatar mới → set avatarId → xoá avatar cũ (nếu có) */
-    async setAvatarFromBuffer(userId: string, meta: UploadMeta) {
-        if (!/^image\//.test(meta.mimetype)) throw new AppError('BAD_FILE', 'Only image/* allowed', 415);
+    if (dto.name !== undefined) user.name = dto.name;
+    if (dto.bio !== undefined) user.bio = dto.bio;
+    if (dto.occupation !== undefined) user.occupation = dto.occupation;
+    if (dto.location !== undefined) user.location = dto.location;
 
-        const { doc: newFile, dto } = await FilesService.uploadBufferAndCreate(meta, 'uploads/avatars');
-
-        const me = await UserModel.findById(userId).select('avatarId').lean();
-        if (!me) {
-            await FilesService.deleteById(String(newFile._id)); // rollback cả file
-            throw new AppError('NOT_FOUND', 'User not found', 404);
+    if (dto.username !== undefined && dto.username !== user.username) {
+        const dup = await UserModel.findOne({ username: dto.username });
+        if (dup && dup._id.toString() !== userId) {
+            throw new AppError('USERNAME_TAKEN', 'Username is already in use', 409);
         }
-        const oldAvatarId: Types.ObjectId | null = (me as any).avatarId ?? null;
+        user.username = dto.username;
+    }
 
-        await UserModel.updateOne({ _id: userId }, { $set: { avatarId: newFile._id } });
+    // avatarId liên kết trực tiếp (set/null)
+    if (dto.avatarId !== undefined) {
+        if (dto.avatarId === null) {
+            user.avatarId = null;
+        } else {
+            if (!Types.ObjectId.isValid(dto.avatarId)) throw new AppError('BAD_ID', 'Invalid avatarId', 400);
+            const f = await FileModel.findById(dto.avatarId);
+            if (!f) throw new AppError('NOT_FOUND', 'Avatar file not found', 404);
+            user.avatarId = f._id;
+        }
+    }
 
-        if (oldAvatarId) await FilesService.deleteById(String(oldAvatarId));
+    // backgroundAvatar liên kết trực tiếp (set/null)
+    if (dto.backgroundAvatar !== undefined) {
+        if (dto.backgroundAvatar === null) {
+            user.backgroundAvatar = null;
+        } else {
+            if (!Types.ObjectId.isValid(dto.backgroundAvatar)) throw new AppError('BAD_ID', 'Invalid backgroundAvatar', 400);
+            const f = await FileModel.findById(dto.backgroundAvatar);
+            if (!f) throw new AppError('NOT_FOUND', 'Background file not found', 404);
+            user.backgroundAvatar = f._id;
+        }
+    }
 
-        return { avatar: dto, avatarId: dto.id, avatarUrl: dto.url };
-    },
+    await user.save();
 
+    // Lấy lại với populate để trả URL thống nhất
+    const fresh = await UserModel.findById(user._id)
+        .populate({ path: 'avatarId', select: '_id secureUrl url filename mime size' })
+        .populate({ path: 'backgroundAvatar', select: '_id secureUrl url filename mime size' });
 
+    return toPublicUser(fresh!);
+};
+
+// Upload từ buffer -> tạo File -> gán avatarId
+export const setAvatarFromBuffer = async (userId: string, file: Express.Multer.File) => {
+    const user = await UserModel.findById(userId);
+    if (!user) throw new AppError('UNAUTHORIZED', 'User not found', 401);
+
+    const { dto } = await FilesService.uploadBufferAndCreate({
+        buffer: file.buffer,
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size
+    });
+
+    user.avatarId = new Types.ObjectId(dto.id);
+    await user.save();
+
+    const fresh = await UserModel.findById(user._id)
+        .populate({ path: 'avatarId', select: '_id secureUrl url filename mime size' })
+        .populate({ path: 'backgroundAvatar', select: '_id secureUrl url filename mime size' });
+
+    return toPublicUser(fresh!);
+};
+
+// Upload từ buffer -> tạo File -> gán backgroundAvatar
+export const setBackgroundFromBuffer = async (userId: string, file: Express.Multer.File) => {
+    const user = await UserModel.findById(userId);
+    if (!user) throw new AppError('UNAUTHORIZED', 'User not found', 401);
+
+    const { dto } = await FilesService.uploadBufferAndCreate({
+        buffer: file.buffer,
+        originalname: file.originalname,
+        mimetype: file.mimetype,
+        size: file.size
+    });
+
+    user.backgroundAvatar = new Types.ObjectId(dto.id);
+    await user.save();
+
+    const fresh = await UserModel.findById(user._id)
+        .populate({ path: 'avatarId', select: '_id secureUrl url filename mime size' })
+        .populate({ path: 'backgroundAvatar', select: '_id secureUrl url filename mime size' });
+
+    return toPublicUser(fresh!);
 };

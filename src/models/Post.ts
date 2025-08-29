@@ -16,9 +16,7 @@ export interface IPost {
 
 const postSchema = new Schema({
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    title: { type: String, required: true, maxlength: 200, index: true },
-    slug: { type: String, required: true, maxlength: 220, unique: true },
-    content: { type: String, default: '' },
+    content: { type: String, required: true, maxlength: 1000, index: true },
     status: { type: String, enum: Object.values(PostStatus), default: PostStatus.PUBLISHED },
     imageIds: {
         type: [{ type: Schema.Types.ObjectId, ref: 'File' }],
@@ -28,5 +26,6 @@ const postSchema = new Schema({
 
 
 postSchema.index({ createdAt: -1 });
+postSchema.index({ content: 'text' }); // Add text search index for content
 
 export const PostModel = model<IPost>('Post', postSchema);
