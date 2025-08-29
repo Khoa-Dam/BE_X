@@ -20,20 +20,49 @@ export const list = async (
         .skip(skip).limit(take);
 
     const [items, total] = await Promise.all([cursor.exec(), PostModel.countDocuments(q)]);
-    // map id fields
-    const mapped = items.map(p => ({
-        ...p.toObject(),
-        id: p._id.toString(),
-        author: p.authorId,
-        cover: p.coverId,
-    }));
+    
+    // Populate avatar cho mỗi user
+    const mapped = await Promise.all(
+        items.map(async (p) => {
+            const user = await UserModel.findById(p.authorId).populate('avatarId');
+            
+            return {
+                ...p.toObject(),
+                id: p._id.toString(),
+                author: user ? {
+                    _id: user._id.toString(),
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    avatarId: user.avatarId
+                } : null,
+                cover: p.coverId,
+            };
+        })
+    );
+    
     return { total, items: mapped };
 }
 
 export const getById = async (id: string) => {
     const p = await PostModel.findById(id).populate('authorId', 'name email role').populate('coverId');
     if (!p) throw new AppError('NOT_FOUND', 'Post not found', 404);
-    return { ...p.toObject(), id: p._id.toString(), author: p.authorId, cover: p.coverId };
+    
+    // Populate avatar cho user
+    const user = await UserModel.findById(p.authorId).populate('avatarId');
+    
+    return { 
+        ...p.toObject(), 
+        id: p._id.toString(), 
+        author: user ? {
+            _id: user._id.toString(),
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            avatarId: user.avatarId
+        } : null,
+        cover: p.coverId 
+    };
 }
 
 export const create = async (authorId: string, dto: { title: string; content?: string; status?: 'DRAFT' | 'PUBLISHED'; coverId?: string | null }) => {
