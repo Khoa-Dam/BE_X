@@ -8,7 +8,15 @@ export async function getMe(req: Request, res: Response, next: NextFunction) {
     catch (e) { next(e); }
 }
 
-const UpdateMeDto = z.object({ name: z.string().trim().min(2).max(100).optional() });
+const UpdateMeDto = z.object({ 
+    name: z.string().trim().min(2).max(100).optional(),
+    bio: z.string().trim().max(500).optional(),
+    occupation: z.string().trim().max(100).optional(),
+    location: z.string().trim().max(100).optional(),
+    username: z.string().trim().max(50).optional(),
+    joinDate: z.string().optional(),
+    backgroundAvatar: z.string().url().optional()
+});
 export async function updateMe(req: Request, res: Response, next: NextFunction) {
     try { res.json(success(await UsersService.updateMe(req.user!.id, UpdateMeDto.parse(req.body)))); }
     catch (e) { next(e); }

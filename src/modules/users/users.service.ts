@@ -7,7 +7,7 @@ export const UsersService = {
     async getMe(userId: string) {
         const user = await UserModel.findById(userId)
             .populate('avatarId', 'secureUrl mime size')
-            .select('name email role avatarId')
+            .select('name email role avatarId bio occupation location username joinDate backgroundAvatar')
             .lean();
 
         if (!user) throw new AppError('NOT_FOUND', 'User not found', 404);
@@ -16,6 +16,12 @@ export const UsersService = {
             name: user.name,
             email: user.email,
             role: user.role,
+            bio: user.bio || '',
+            occupation: user.occupation || '',
+            location: user.location || '',
+            username: user.username || '',
+            joinDate: user.joinDate || new Date().getFullYear().toString(),
+            backgroundAvatar: user.backgroundAvatar || '',
             avatar: user.avatarId ? {
                 id: String((user as any).avatarId._id),
                 url: (user as any).avatarId.secureUrl,
@@ -25,18 +31,43 @@ export const UsersService = {
         };
     },
 
-    async updateMe(userId: string, dto: { name?: string }) {
+    async updateMe(userId: string, dto: { 
+        name?: string, 
+        bio?: string, 
+        occupation?: string, 
+        location?: string, 
+        username?: string, 
+        joinDate?: string,
+        backgroundAvatar?: string 
+    }) {
         const update: any = {};
         if (dto.name !== undefined) update.name = dto.name;
+        if (dto.bio !== undefined) update.bio = dto.bio;
+        if (dto.occupation !== undefined) update.occupation = dto.occupation;
+        if (dto.location !== undefined) update.location = dto.location;
+        if (dto.username !== undefined) update.username = dto.username;
+        if (dto.joinDate !== undefined) update.joinDate = dto.joinDate;
+        if (dto.backgroundAvatar !== undefined) {
+            update.backgroundAvatar = dto.backgroundAvatar;
+        }
 
         const user = await UserModel.findByIdAndUpdate(
-            userId, update, { new: true, projection: 'name email role avatarId' }
+            userId, update, { new: true, projection: 'name email role avatarId bio occupation location username joinDate backgroundAvatar' }
         ).populate('avatarId', 'secureUrl');
 
         if (!user) throw new AppError('NOT_FOUND', 'User not found', 404);
 
         return {
-            id: user.id, name: user.name, email: user.email, role: user.role,
+            id: user.id, 
+            name: user.name, 
+            email: user.email, 
+            role: user.role,
+            bio: user.bio,
+            occupation: user.occupation,
+            location: user.location,
+            username: user.username,
+            joinDate: user.joinDate,
+            backgroundAvatar: user.backgroundAvatar,
             avatar: user.avatarId ? { id: String((user as any).avatarId._id), url: (user as any).avatarId.secureUrl } : null
         };
     },

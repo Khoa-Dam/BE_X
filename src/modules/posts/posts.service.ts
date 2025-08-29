@@ -14,7 +14,7 @@ export const list = async (
         q.$or = [{ title: regex }, { content: regex }];
     }
     const cursor = PostModel.find(q)
-        .populate('authorId', 'name email role')
+        .populate('authorId', 'name email role username bio occupation location joinDate avatarId backgroundAvatar')
         .populate('coverId')
         .sort({ [sort]: order === 'asc' ? 1 : -1 })
         .skip(skip).limit(take);
@@ -34,7 +34,13 @@ export const list = async (
                     name: user.name,
                     email: user.email,
                     role: user.role,
-                    avatarId: user.avatarId
+                    username: user.username,
+                    bio: user.bio,
+                    occupation: user.occupation,
+                    location: user.location,
+                    joinDate: user.joinDate,
+                    avatarId: user.avatarId,
+                    backgroundAvatar: user.backgroundAvatar
                 } : null,
                 cover: p.coverId,
             };
@@ -45,7 +51,7 @@ export const list = async (
 }
 
 export const getById = async (id: string) => {
-    const p = await PostModel.findById(id).populate('authorId', 'name email role').populate('coverId');
+    const p = await PostModel.findById(id).populate('authorId', 'name email role username bio occupation location joinDate avatarId backgroundAvatar').populate('coverId');
     if (!p) throw new AppError('NOT_FOUND', 'Post not found', 404);
     
     // Populate avatar cho user
@@ -59,7 +65,13 @@ export const getById = async (id: string) => {
             name: user.name,
             email: user.email,
             role: user.role,
-            avatarId: user.avatarId
+            username: user.username,
+            bio: user.bio,
+            occupation: user.occupation,
+            location: user.location,
+            joinDate: user.joinDate,
+            avatarId: user.avatarId,
+            backgroundAvatar: user.backgroundAvatar
         } : null,
         cover: p.coverId 
     };
