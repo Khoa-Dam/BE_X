@@ -4,13 +4,22 @@ import * as svc from './posts.service';
 import { parsePagination, buildMeta } from '../../utils/pagination';
 import { success } from '../../utils/response';
 
+const objectId = () => z.string().regex(/^[a-fA-F0-9]{24}$/);
+
 const CreateDto = z.object({
     title: z.string().min(3),
     content: z.string().optional(),
     status: z.enum(['DRAFT', 'PUBLISHED']).optional(),
-    coverId: z.string().regex(/^[a-fA-F0-9]{24}$/).optional().nullable()
+    imageIds: z.array(objectId()).optional().default([])
 });
-const UpdateDto = CreateDto.partial();
+const UpdateDto = z.object({
+    title: z.string().min(3).optional(),
+    content: z.string().optional(),
+    status: z.enum(['DRAFT', 'PUBLISHED']).optional(),
+    imageIds: z.array(objectId()).optional(),
+    addImageIds: z.array(objectId()).optional(),
+    removeImageIds: z.array(objectId()).optional()
+});
 
 export const list = async (req: Request, res: Response, next: NextFunction) => {
     try {

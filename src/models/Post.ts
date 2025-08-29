@@ -9,7 +9,7 @@ export interface IPost {
     slug: string;
     content?: string;
     status: PostStatus;
-    coverId?: Types.ObjectId | null;
+    imageIds: Types.ObjectId[];
     createdAt: Date;
     updatedAt: Date;
 }
@@ -20,8 +20,12 @@ const postSchema = new Schema({
     slug: { type: String, required: true, maxlength: 220, unique: true },
     content: { type: String, default: '' },
     status: { type: String, enum: Object.values(PostStatus), default: PostStatus.PUBLISHED },
-    coverId: { type: Schema.Types.ObjectId, ref: 'File', default: null },
-}, { timestamps: true });
+    imageIds: {
+        type: [{ type: Schema.Types.ObjectId, ref: 'File' }],
+        default: []
+    }
+}, { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } });
+
 
 postSchema.index({ createdAt: -1 });
 

@@ -12,6 +12,8 @@ export function verifyAccessToken(req: Request, _res: Response, next: NextFuncti
         ? req.headers.authorization.slice(7)
         : null;
 
+    console.log('token', token);
+
     // Fallback to cookies (for web browser)
     if (!token) {
         token = req.cookies?.access_token;
@@ -25,6 +27,8 @@ export function verifyAccessToken(req: Request, _res: Response, next: NextFuncti
         req.user = jwt.verify(token, env.JWT_ACCESS_SECRET) as JwtUser;
         next();
     } catch {
+        console.log('token', token);
+
         next(new AppError('UNAUTHORIZED', 'Invalid/Expired token', 401));
     }
 }
