@@ -103,12 +103,77 @@ function App() {
         finally { setLoading(false); }
     };
 
-    const logout = async () => { setLoading(true); try { await authAPI.logout(); setUser(null); handleResponse({ message: 'Đăng xuất thành công' }); setPosts([]); } catch (error) { handleResponse(error.response?.data?.error?.message || 'Đăng xuất thất bại', true); } finally { setLoading(false); } };
-    const refreshToken = async () => { setLoading(true); try { const res = await authAPI.refresh(); if (res.success) { setUser(res.data); handleResponse(res.data); } } catch (error) { handleResponse(error.response?.data?.error?.message || 'Refresh token thất bại', true); } finally { setLoading(false); } };
+    const logout = async () => {
+        setLoading(true);
+        try {
+            await authAPI.logout();
+            setUser(null);
+            handleResponse({ message: 'Đăng xuất thành công' });
+            setPosts([]);
+        } catch (error) {
+            handleResponse(error.response?.data?.error?.message || 'Đăng xuất thất bại', true);
+        } finally {
+            setLoading(false);
+        }
+    };
+    const refreshToken = async () => {
+        setLoading(true);
+        try {
+            const res = await authAPI.refresh();
+            if (res.success) {
+                setUser(res.data);
+                handleResponse(res.data);
+            }
+        } catch (error) {
+            handleResponse(error.response?.data?.error?.message || 'Refresh token thất bại', true);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // User APIs (giữ nguyên)
-    const getProfile = async () => { if (!user) { handleResponse('Vui lòng đăng nhập trước', true); return; } setLoading(true); try { const res = await userAPI.getProfile(); if (res.success) { setUser(res.data); handleResponse(res.data); } } catch (error) { handleResponse(error.response?.data?.error?.message || 'Lấy profile thất bại', true); } finally { setLoading(false); } };
-    const updateProfile = async () => { if (!user) { handleResponse('Vui lòng đăng nhập trước', true); return; } const newName = document.getElementById('updateName').value; if (!newName) { handleResponse('Vui lòng nhập tên mới', true); return; } setLoading(true); try { const res = await userAPI.updateProfile({ name: newName }); if (res.success) { setUser(res.data); handleResponse(res.data); document.getElementById('updateName').value = ''; } } catch (error) { handleResponse(error.response?.data?.error?.message || 'Cập nhật profile thất bại', true); } finally { setLoading(false); } };
+    const getProfile = async () => {
+        if (!user) {
+            handleResponse('Vui lòng đăng nhập trước', true);
+            return;
+        }
+        setLoading(true);
+        try {
+            const res = await userAPI.getProfile();
+            if (res.success) {
+                setUser(res.data);
+                handleResponse(res.data);
+            }
+        } catch (error) {
+            handleResponse(error.response?.data?.error?.message || 'Lấy profile thất bại', true);
+        } finally {
+            setLoading(false);
+        }
+    };
+    const updateProfile = async () => {
+        if (!user) {
+            handleResponse('Vui lòng đăng nhập trước', true);
+            return;
+        }
+        const newName = document.getElementById('updateName').value;
+        if (!newName) {
+            handleResponse('Vui lòng nhập tên mới', true);
+            return;
+        }
+        setLoading(true);
+        try {
+            const res = await userAPI.updateProfile({ name: newName });
+            if (res.success) {
+                setUser(res.data);
+                handleResponse(res.data);
+                document.getElementById('updateName').value = '';
+            }
+        } catch (error) {
+            handleResponse(error.response?.data?.error?.message || 'Cập nhật profile thất bại', true);
+        } finally {
+            setLoading(false);
+        }
+    };
     const uploadAvatar = async (event) => {
         if (!user) {
             handleResponse('Vui lòng đăng nhập trước', true);
@@ -240,11 +305,71 @@ function App() {
     };
 
     // Upload tab APIs (giữ nguyên)
-    const uploadFile = async (event) => { if (!user) { handleResponse('Vui lòng đăng nhập trước', true); return; } const file = event.target.files[0]; if (!file) return; setLoading(true); try { const formData = new FormData(); formData.append('file', file); const res = await uploadAPI.upload(file); if (res.success) handleResponse(res.data); } catch (error) { handleResponse(error.response?.data?.error?.message || 'Upload file thất bại', true); } finally { setLoading(false); } };
-    const getFileMeta = async () => { const fileId = document.getElementById('fileId').value; if (!fileId) { handleResponse('Vui lòng nhập ID file', true); return; } setLoading(true); try { const res = await uploadAPI.getMeta(fileId); if (res.success) handleResponse(res.data); } catch (error) { handleResponse(error.response?.data?.error?.message || 'Lấy thông tin file thất bại', true); } finally { setLoading(false); } };
-    const deleteFile = async () => { if (!user) { handleResponse('Vui lòng đăng nhập trước', true); return; } const fileId = document.getElementById('deleteFileId').value; if (!fileId) { handleResponse('Vui lòng nhập ID file', true); return; } if (!window.confirm('Bạn có chắc chắn muốn xóa file này?')) return; setLoading(true); try { const res = await uploadAPI.delete(fileId); if (res.success) { handleResponse(res.data); document.getElementById('deleteFileId').value = ''; } } catch (error) { handleResponse(error.response?.data?.error?.message || 'Xóa file thất bại', true); } finally { setLoading(false); } };
+    const uploadFile = async (event) => {
+        if (!user) {
+            handleResponse('Vui lòng đăng nhập trước', true);
+            return;
+        }
+        const file = event.target.files[0];
+        if (!file) return;
+        setLoading(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await uploadAPI.upload(file);
+            if (res.success) handleResponse(res.data);
+        } catch (error) {
+            handleResponse(error.response?.data?.error?.message || 'Upload file thất bại', true);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    const googleLogin = () => { window.location.href = 'http://localhost:4000/api/v1/auth/google'; };
+    const getFileMeta = async () => {
+        const fileId = document.getElementById('fileId').value;
+        if (!fileId) {
+            handleResponse('Vui lòng nhập ID file', true);
+            return;
+        }
+        setLoading(true);
+        try {
+            const res = await uploadAPI.getMeta(fileId);
+            if (res.success) handleResponse(res.data);
+        } catch (error) {
+            handleResponse(error.response?.data?.error?.message || 'Lấy thông tin file thất bại', true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const deleteFile = async () => {
+        if (!user) {
+            handleResponse('Vui lòng đăng nhập trước', true);
+            return;
+        }
+        const fileId = document.getElementById('deleteFileId').value;
+        if (!fileId) {
+            handleResponse('Vui lòng nhập ID file', true);
+            return;
+        }
+        if (!window.confirm('Bạn có chắc chắn muốn xóa file này?')) return;
+        setLoading(true);
+        try {
+            const res = await uploadAPI.delete(fileId);
+            if (res.success) {
+                handleResponse(res.data);
+                document.getElementById('deleteFileId').value = '';
+            }
+        } catch (error) {
+            handleResponse(error.response?.data?.error?.message || 'Xóa file thất bại', true);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const googleLogin = () => {
+        window.location.href = 'http://localhost:4000/api/v1/auth/google';
+    };
 
     return (
         <div className="container">
