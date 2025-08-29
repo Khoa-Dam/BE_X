@@ -1,0 +1,87 @@
+/* Additional styles for App component */
+.App {
+  text-align: center;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+  
+  .header h1 {
+    font-size: 2rem;
+  }
+  
+  .tabs {
+    flex-direction: column;
+  }
+  
+  .tab {
+    font-size: 12px;
+    padding: 10px 15px;
+  }
+  
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .content {
+    padding: 20px;
+  }
+}
+
+/* Loading animation improvements */
+.loading {
+  border-width: 2px;
+  width: 16px;
+  height: 16px;
+}
+
+/* Button improvements */
+.btn:active {
+  transform: translateY(0);
+}
+
+/* Form improvements */
+.form-group input:invalid,
+.form-group textarea:invalid {
+  border-color: #dc3545;
+}
+
+/* Card hover effects */
+.card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transform: translateY(-1px);
+  transition: all 0.3s ease;
+}
+
+/* File upload improvements */
+.file-upload.dragover {
+  border-color: #28a745;
+  background: #d4edda;
+}
+
+/* Response area improvements */
+.response pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Tab improvements */
+.tab:focus {
+  outline: 2px solid #667eea;
+  outline-offset: -2px;
+}
+
+/* Accessibility improvements */
+@media (prefers-reduced-motion: reduce) {
+  .btn:hover,
+  .card:hover {
+    transform: none;
+  }
+  
+  .loading {
+    animation: none;
+  }
+}
