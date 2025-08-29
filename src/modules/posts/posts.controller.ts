@@ -5,8 +5,7 @@ import { parsePagination, buildMeta } from '../../utils/pagination';
 import { success } from '../../utils/response';
 
 const CreateDto = z.object({
-    title: z.string().min(3),
-    content: z.string().optional(),
+    content: z.string().min(1).max(1000),
     status: z.enum(['DRAFT', 'PUBLISHED']).optional(),
     coverId: z.string().regex(/^[a-fA-F0-9]{24}$/).optional().nullable()
 });
@@ -16,7 +15,7 @@ export const list = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { page, limit, skip, take } = parsePagination(req.query);
         const search = req.query.search as string | undefined;
-        const sort = (req.query.sort as 'createdAt' | 'title' | undefined) ?? 'createdAt';
+        const sort = (req.query.sort as 'createdAt' | 'content' | undefined) ?? 'createdAt';
         const order = (req.query.order as 'asc' | 'desc' | undefined) ?? 'desc';
         const { total, items } = await svc.list({ search, sort, order, skip, take });
         res.json(success(items, buildMeta(total, page, limit)));

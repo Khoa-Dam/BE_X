@@ -2,16 +2,15 @@ import { PostModel, PostStatus } from '../../models/Post';
 import { UserModel } from '../../models/User';
 import { FileModel } from '../../models/File';
 import { AppError } from '../../utils/response';
-import { slugify } from '../../utils/slugify';
 import { Types } from 'mongoose';
 
 export const list = async (
     { search, sort = 'createdAt', order = 'desc', skip, take }:
-        { search?: string; sort?: 'createdAt' | 'title'; order?: 'asc' | 'desc'; skip: number; take: number; }) => {
+        { search?: string; sort?: 'createdAt' | 'content'; order?: 'asc' | 'desc'; skip: number; take: number; }) => {
     const q: any = {};
     if (search) {
         const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-        q.$or = [{ title: regex }, { content: regex }];
+        q.content = regex;
     }
     const cursor = PostModel.find(q)
         .populate('authorId', 'name email role username bio occupation location joinDate avatarId backgroundAvatar')
@@ -77,12 +76,10 @@ export const getById = async (id: string) => {
     };
 }
 
-export const create = async (authorId: string, dto: { title: string; content?: string; status?: 'DRAFT' | 'PUBLISHED'; coverId?: string | null }) => {
+export const create = async (authorId: string, dto: { content: string; status?: 'DRAFT' | 'PUBLISHED'; coverId?: string | null }) => {
     const user = await UserModel.findById(authorId);
     if (!user) throw new AppError('UNAUTHORIZED', 'User not found', 401);
 
-    const base = slugify(dto.title);
-    const existed = await PostModel.findOne({ slug: base });
     const coverId = dto.coverId ? new Types.ObjectId(dto.coverId) : null;
     if (coverId) {
         const f = await FileModel.findById(coverId);
@@ -91,26 +88,18 @@ export const create = async (authorId: string, dto: { title: string; content?: s
 
     const post = await PostModel.create({
         authorId: user._id,
-        title: dto.title,
-        slug: existed ? `${base}-${Date.now()}` : base,
-        content: dto.content ?? '',
+        content: dto.content,
         status: (dto.status ?? 'PUBLISHED') as PostStatus,
         coverId
     });
     return { ...post.toObject(), id: post._id.toString() };
 }
 
-export const update = async (id: string, userId: string, dto: Partial<{ title: string; content: string; status: 'DRAFT' | 'PUBLISHED'; coverId: string | null }>) => {
+export const update = async (id: string, userId: string, dto: Partial<{ content: string; status: 'DRAFT' | 'PUBLISHED'; coverId: string | null }>) => {
     const post = await PostModel.findById(id);
     if (!post) throw new AppError('NOT_FOUND', 'Post not found', 404);
     if (post.authorId.toString() !== userId) throw new AppError('FORBIDDEN', 'Not your post', 403);
 
-    if (dto.title && dto.title !== post.title) {
-        const base = slugify(dto.title);
-        const existed = await PostModel.findOne({ slug: base });
-        post.title = dto.title;
-        post.slug = (existed && existed._id.toString() !== id) ? `${base}-${Date.now()}` : base;
-    }
     if (dto.content !== undefined) post.content = dto.content;
     if (dto.status) post.status = dto.status as PostStatus;
     if (dto.coverId !== undefined) {
