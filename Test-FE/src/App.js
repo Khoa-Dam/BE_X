@@ -1,83 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import './App.css';
 
-// Cấu hình axios
-axios.defaults.baseURL = 'http://localhost:4000/api/v1';
-axios.defaults.withCredentials = true;
+// Components
+import {
+    Header,
+    TabNavigation,
+    AuthTab,
+    UsersTab,
+    PostsTab,
+    UploadsTab,
+    GoogleOAuthTab
+} from './components';
 
-// Helper: lấy URL file từ id (nếu chưa populate)
-async function fetchFileUrl(fileId) {
-    if (!fileId) return null;
-    try {
-        const r = await axios.get(`/uploads/${fileId}`);
-        return r?.data?.data?.secureUrl || r?.data?.data?.url || null;
-    } catch { return null; }
-}
+// Services
+import { authAPI, userAPI, postsAPI, uploadAPI } from './services/api';
+import { setupAxiosInterceptors } from './utils/helpers';
 
-// Helper: chuẩn hoá avatar tác giả từ nhiều shape khác nhau
-async function normalizeAuthorAvatar(post) {
-    const a = post?.author;
-    if (!a) return null;
-    // Ưu tiên các trường URL sẵn có từ BE mới
-    if (a.avatarUrl) return a.avatarUrl;
-    if (a.avatar?.url) return a.avatar.url;
-    if (a.avatarId?.secureUrl) return a.avatarId.secureUrl;
-
-    // Nếu chỉ có id
-    if (typeof a.avatarId === 'string') return await fetchFileUrl(a.avatarId);
-    if (a.avatarId?._id) return await fetchFileUrl(a.avatarId._id);
-    return null;
-}
-
-// Helper: chuẩn hoá danh sách ảnh của post -> [{ id, url }]
-async function normalizePostImages(post) {
-    // Trường hợp backend trả về images (đã populate)
-    if (Array.isArray(post.images) && post.images.length) {
-        return post.images.map((img) => ({ id: String(img.id || img._id), url: img.secureUrl || img.url })).filter(x => x.url);
-    }
-    // Trường hợp backend chỉ trả imageIds (id thuần)
-    if (Array.isArray(post.imageIds) && post.imageIds.length) {
-        const urls = await Promise.all(post.imageIds.map((id) => fetchFileUrl(typeof id === 'string' ? id : id?._id)));
-        return urls.map((url, idx) => url ? ({ id: String(post.imageIds[idx]), url }) : null).filter(Boolean);
-    }
-    return [];
-}
-
-// Axios interceptor: tự động refresh khi gặp 401 một lần
-let isRefreshing = false;
-let subscribers = [];
-
-function onRefreshed() {
-    subscribers.forEach((cb) => cb());
-    subscribers = [];
-}
-
-axios.interceptors.response.use(
-    (res) => res,
-    async (error) => {
-        const originalRequest = error.config;
-        if (error?.response?.status === 401 && !originalRequest._retry) {
-            if (isRefreshing) {
-                return new Promise((resolve) => {
-                    subscribers.push(() => resolve(axios(originalRequest)));
-                });
-            }
-            originalRequest._retry = true;
-            isRefreshing = true;
-            try {
-                await axios.post('/auth/refresh');
-                isRefreshing = false;
-                onRefreshed();
-                return axios(originalRequest);
-            } catch (e) {
-                isRefreshing = false;
-                return Promise.reject(error);
-            }
-        }
-        return Promise.reject(error);
-    }
-);
+// Setup axios interceptors
+setupAxiosInterceptors();
 
 function App() {
     const [activeTab, setActiveTab] = useState('auth');
@@ -87,6 +27,9 @@ function App() {
     const [posts, setPosts] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+
+    // Debug log
+    console.log('App rendered, activeTab:', activeTab);
 
     // Form states
     const [authForm, setAuthForm] = useState({
@@ -101,7 +44,7 @@ function App() {
         content: '',
         status: 'DRAFT'
     });
-    const [postImageFiles, setPostImageFiles] = useState([]); // multiple images
+    const [postImageFiles, setPostImageFiles] = useState([]);
     const [postImagePreviews, setPostImagePreviews] = useState([]);
 
     // Update Post form
@@ -110,11 +53,12 @@ function App() {
         title: '',
         content: ''
     });
-    const [updateAddImageFiles, setUpdateAddImageFiles] = useState([]); // images to add
-    const [updateRemoveImageIds, setUpdateRemoveImageIds] = useState(''); // comma-separated ids
-    const [updateReplaceImageIds, setUpdateReplaceImageIds] = useState(''); // comma-separated to replace all
+    const [updateAddImageFiles, setUpdateAddImageFiles] = useState([]);
+    const [updateRemoveImageIds, setUpdateRemoveImageIds] = useState('');
+    const [updateReplaceImageIds, setUpdateReplaceImageIds] = useState('');
 
     useEffect(() => {
+        console.log('App useEffect - checkAuthStatus called');
         checkAuthStatus();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -125,24 +69,28 @@ function App() {
 
     const checkAuthStatus = async () => {
         try {
-            const res = await axios.get('/users/me');
-            if (res.data?.success) setUser(res.data.data);
+            const res = await userAPI.getProfile();
+            if (res.success) setUser(res.data);
         } catch (err) {
             try {
-                await axios.post('/auth/refresh');
-                const res2 = await axios.get('/users/me');
-                if (res2.data?.success) setUser(res2.data.data);
+                await authAPI.refresh();
+                const res2 = await userAPI.getProfile();
+                if (res2.success) setUser(res2.data);
             } catch (_) { setUser(null); }
         }
     };
 
-    const showTab = (tabName) => { setActiveTab(tabName); setResponse(null); };
+    const showTab = (tabName) => {
+        console.log('showTab called with:', tabName);
+        setActiveTab(tabName);
+        setResponse(null);
+    };
 
     // Authentication APIs (giữ nguyên)
     const register = async () => {
         if (!authForm.name || !authForm.email || !authForm.password) { handleResponse('Vui lòng điền đầy đủ thông tin', true); return; }
         setLoading(true);
-        try { const res = await axios.post('/auth/register', authForm); if (res.data.success) { setUser(res.data.data); handleResponse(res.data); setAuthForm({ name: '', email: '', password: '' }); } }
+        try { const res = await authAPI.register(authForm); if (res.success) { setUser(res.data); handleResponse(res.data); setAuthForm({ name: '', email: '', password: '' }); } }
         catch (error) { handleResponse(error.response?.data?.error?.message || 'Đăng ký thất bại', true); }
         finally { setLoading(false); }
     };
@@ -150,18 +98,39 @@ function App() {
     const login = async () => {
         if (!authForm.email || !authForm.password) { handleResponse('Vui lòng điền đầy đủ thông tin', true); return; }
         setLoading(true);
-        try { const res = await axios.post('/auth/login', { email: authForm.email, password: authForm.password }); if (res.data.success) { setUser(res.data.data); handleResponse(res.data); setAuthForm({ name: '', email: '', password: '' }); } }
+        try { const res = await authAPI.login({ email: authForm.email, password: authForm.password }); if (res.success) { setUser(res.data); handleResponse(res.data); setAuthForm({ name: '', email: '', password: '' }); } }
         catch (error) { handleResponse(error.response?.data?.error?.message || 'Đăng nhập thất bại', true); }
         finally { setLoading(false); }
     };
 
-    const logout = async () => { setLoading(true); try { await axios.post('/auth/logout'); setUser(null); handleResponse({ message: 'Đăng xuất thành công' }); setPosts([]); } catch (error) { handleResponse(error.response?.data?.error?.message || 'Đăng xuất thất bại', true); } finally { setLoading(false); } };
-    const refreshToken = async () => { setLoading(true); try { const res = await axios.post('/auth/refresh'); if (res.data.success) { setUser(res.data.data); handleResponse(res.data); } } catch (error) { handleResponse(error.response?.data?.error?.message || 'Refresh token thất bại', true); } finally { setLoading(false); } };
+    const logout = async () => { setLoading(true); try { await authAPI.logout(); setUser(null); handleResponse({ message: 'Đăng xuất thành công' }); setPosts([]); } catch (error) { handleResponse(error.response?.data?.error?.message || 'Đăng xuất thất bại', true); } finally { setLoading(false); } };
+    const refreshToken = async () => { setLoading(true); try { const res = await authAPI.refresh(); if (res.success) { setUser(res.data); handleResponse(res.data); } } catch (error) { handleResponse(error.response?.data?.error?.message || 'Refresh token thất bại', true); } finally { setLoading(false); } };
 
     // User APIs (giữ nguyên)
-    const getProfile = async () => { if (!user) { handleResponse('Vui lòng đăng nhập trước', true); return; } setLoading(true); try { const res = await axios.get('/users/me'); if (res.data.success) { setUser(res.data.data); handleResponse(res.data); } } catch (error) { handleResponse(error.response?.data?.error?.message || 'Lấy profile thất bại', true); } finally { setLoading(false); } };
-    const updateProfile = async () => { if (!user) { handleResponse('Vui lòng đăng nhập trước', true); return; } const newName = document.getElementById('updateName').value; if (!newName) { handleResponse('Vui lòng nhập tên mới', true); return; } setLoading(true); try { const res = await axios.patch('/users/me', { name: newName }); if (res.data.success) { setUser(res.data.data); handleResponse(res.data); document.getElementById('updateName').value = ''; } } catch (error) { handleResponse(error.response?.data?.error?.message || 'Cập nhật profile thất bại', true); } finally { setLoading(false); } };
-    const uploadAvatar = async (event) => { if (!user) { handleResponse('Vui lòng đăng nhập trước', true); return; } const file = event.target.files[0]; if (!file) return; setLoading(true); try { const formData = new FormData(); formData.append('file', file); const res = await axios.post('/users/me/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } }); if (res.data.success) { setUser(res.data.data.user); handleResponse(res.data); } } catch (error) { handleResponse(error.response?.data?.error?.message || 'Upload avatar thất bại', true); } finally { setLoading(false); } };
+    const getProfile = async () => { if (!user) { handleResponse('Vui lòng đăng nhập trước', true); return; } setLoading(true); try { const res = await userAPI.getProfile(); if (res.success) { setUser(res.data); handleResponse(res.data); } } catch (error) { handleResponse(error.response?.data?.error?.message || 'Lấy profile thất bại', true); } finally { setLoading(false); } };
+    const updateProfile = async () => { if (!user) { handleResponse('Vui lòng đăng nhập trước', true); return; } const newName = document.getElementById('updateName').value; if (!newName) { handleResponse('Vui lòng nhập tên mới', true); return; } setLoading(true); try { const res = await userAPI.updateProfile({ name: newName }); if (res.success) { setUser(res.data); handleResponse(res.data); document.getElementById('updateName').value = ''; } } catch (error) { handleResponse(error.response?.data?.error?.message || 'Cập nhật profile thất bại', true); } finally { setLoading(false); } };
+    const uploadAvatar = async (event) => {
+        if (!user) {
+            handleResponse('Vui lòng đăng nhập trước', true);
+            return;
+        }
+        const file = event.target.files[0];
+        console.log('Upload avatar - file:', file);
+        if (!file) return;
+        setLoading(true);
+        try {
+            const res = await userAPI.uploadAvatar(file);
+            if (res.success) {
+                setUser(res.data.user);
+                handleResponse(res.data);
+            }
+        } catch (error) {
+            console.error('Upload avatar error:', error);
+            handleResponse(error.response?.data?.error?.message || 'Upload avatar thất bại', true);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     // Posts APIs
     const createPost = async () => {
@@ -175,14 +144,14 @@ function App() {
                 for (const f of postImageFiles) {
                     const fd = new FormData();
                     fd.append('file', f);
-                    const up = await axios.post('/uploads', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-                    if (up.data?.success) imageIds.push(up.data.data.id);
+                    const up = await uploadAPI.upload(fd);
+                    if (up.success) imageIds.push(up.data.id);
                 }
             }
             const payload = { ...postForm };
             if (imageIds.length) payload.imageIds = imageIds;
-            const res = await axios.post('/posts', payload);
-            if (res.data.success) {
+            const res = await postsAPI.create(payload, postImageFiles);
+            if (res.success) {
                 handleResponse(res.data);
                 setPostForm({ title: '', content: '', status: 'DRAFT' });
                 setPostImageFiles([]);
@@ -199,17 +168,12 @@ function App() {
             const search = document.getElementById('searchPosts')?.value || '';
             const sort = document.getElementById('sortPosts')?.value || 'createdAt';
             const order = document.getElementById('orderPosts')?.value || 'desc';
-            const res = await axios.get('/posts', { params: { page: currentPage, limit: 10, search, sort, order } });
-            if (res.data.success) {
-                const raw = res.data.data || [];
-                // Chuẩn hoá ảnh & avatar cho mỗi post
-                const normalized = await Promise.all(raw.map(async (p) => ({
-                    ...p,
-                    imagesNormalized: await normalizePostImages(p),
-                    authorAvatarUrl: await normalizeAuthorAvatar(p)
-                })));
-                setPosts(normalized);
-                setTotalPages(Math.ceil(res.data.meta.total / 10));
+            const res = await postsAPI.list({ page: currentPage, limit: 10, search, sort, order });
+            console.log('[POSTS LIST] response:', res);
+            console.log('[POSTS LIST] response.data:', res.data);
+            if (res.success) {
+                setPosts(res.data);
+                setTotalPages(Math.ceil(res.meta.total / 10));
                 handleResponse(res.data);
             }
         } catch (error) { handleResponse(error.response?.data?.error?.message || 'Lấy danh sách bài viết thất bại', true); }
@@ -240,8 +204,8 @@ function App() {
                     for (const f of updateAddImageFiles) {
                         const fd = new FormData();
                         fd.append('file', f);
-                        const up = await axios.post('/uploads', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
-                        if (up.data?.success) addIds.push(up.data.data.id);
+                        const up = await uploadAPI.upload(fd);
+                        if (up.success) addIds.push(up.data.id);
                     }
                     if (addIds.length) updateData.addImageIds = addIds;
                 }
@@ -251,8 +215,8 @@ function App() {
                 }
             }
 
-            const res = await axios.patch(`/posts/${updatePostForm.id}`, updateData);
-            if (res.data.success) {
+            const res = await postsAPI.update(updatePostForm.id, updateData, updateAddImageFiles, updateRemoveImageIds, updateReplaceImageIds);
+            if (res.success) {
                 handleResponse(res.data);
                 setUpdatePostForm({ id: '', title: '', content: '' });
                 setUpdateAddImageFiles([]);
@@ -270,15 +234,15 @@ function App() {
         if (!postId) { handleResponse('Vui lòng nhập ID bài viết', true); return; }
         if (!window.confirm('Bạn có chắc chắn muốn xóa bài viết này?')) return;
         setLoading(true);
-        try { const res = await axios.delete(`/posts/${postId}`); if (res.data.success) { handleResponse(res.data); document.getElementById('deletePostId').value = ''; listPosts(); } }
+        try { const res = await postsAPI.delete(postId); if (res.success) { handleResponse(res.data); document.getElementById('deletePostId').value = ''; listPosts(); } }
         catch (error) { handleResponse(error.response?.data?.error?.message || 'Xóa bài viết thất bại', true); }
         finally { setLoading(false); }
     };
 
     // Upload tab APIs (giữ nguyên)
-    const uploadFile = async (event) => { if (!user) { handleResponse('Vui lòng đăng nhập trước', true); return; } const file = event.target.files[0]; if (!file) return; setLoading(true); try { const formData = new FormData(); formData.append('file', file); const res = await axios.post('/uploads', formData, { headers: { 'Content-Type': 'multipart/form-data' } }); if (res.data.success) handleResponse(res.data); } catch (error) { handleResponse(error.response?.data?.error?.message || 'Upload file thất bại', true); } finally { setLoading(false); } };
-    const getFileMeta = async () => { const fileId = document.getElementById('fileId').value; if (!fileId) { handleResponse('Vui lòng nhập ID file', true); return; } setLoading(true); try { const res = await axios.get(`/uploads/${fileId}`); if (res.data.success) handleResponse(res.data); } catch (error) { handleResponse(error.response?.data?.error?.message || 'Lấy thông tin file thất bại', true); } finally { setLoading(false); } };
-    const deleteFile = async () => { if (!user) { handleResponse('Vui lòng đăng nhập trước', true); return; } const fileId = document.getElementById('deleteFileId').value; if (!fileId) { handleResponse('Vui lòng nhập ID file', true); return; } if (!window.confirm('Bạn có chắc chắn muốn xóa file này?')) return; setLoading(true); try { const res = await axios.delete(`/uploads/${fileId}`); if (res.data.success) { handleResponse(res.data); document.getElementById('deleteFileId').value = ''; } } catch (error) { handleResponse(error.response?.data?.error?.message || 'Xóa file thất bại', true); } finally { setLoading(false); } };
+    const uploadFile = async (event) => { if (!user) { handleResponse('Vui lòng đăng nhập trước', true); return; } const file = event.target.files[0]; if (!file) return; setLoading(true); try { const formData = new FormData(); formData.append('file', file); const res = await uploadAPI.upload(file); if (res.success) handleResponse(res.data); } catch (error) { handleResponse(error.response?.data?.error?.message || 'Upload file thất bại', true); } finally { setLoading(false); } };
+    const getFileMeta = async () => { const fileId = document.getElementById('fileId').value; if (!fileId) { handleResponse('Vui lòng nhập ID file', true); return; } setLoading(true); try { const res = await uploadAPI.getMeta(fileId); if (res.success) handleResponse(res.data); } catch (error) { handleResponse(error.response?.data?.error?.message || 'Lấy thông tin file thất bại', true); } finally { setLoading(false); } };
+    const deleteFile = async () => { if (!user) { handleResponse('Vui lòng đăng nhập trước', true); return; } const fileId = document.getElementById('deleteFileId').value; if (!fileId) { handleResponse('Vui lòng nhập ID file', true); return; } if (!window.confirm('Bạn có chắc chắn muốn xóa file này?')) return; setLoading(true); try { const res = await uploadAPI.delete(fileId); if (res.success) { handleResponse(res.data); document.getElementById('deleteFileId').value = ''; } } catch (error) { handleResponse(error.response?.data?.error?.message || 'Xóa file thất bại', true); } finally { setLoading(false); } };
 
     const googleLogin = () => { window.location.href = 'http://localhost:4000/api/v1/auth/google'; };
 
@@ -514,47 +478,45 @@ function App() {
                     {posts.length > 0 && (
                         <div className="posts-list">
                             <h3>📋 Danh sách bài viết</h3>
-                            {posts.map((post) => (
-                                <div key={post._id || post.id} className="post-item">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        {post.authorAvatarUrl && (
-                                            <img src={post.authorAvatarUrl} alt="avatar" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+                            {posts.map((post) => {
+                                console.log('Post data:', post);
+                                return (
+                                    <div key={post._id || post.id} className="post-item">
+                                        <h5>{post.title}</h5>
+                                        <p>{post.content}</p>
+                                        {/* Hiển thị tất cả ảnh */}
+                                        {Array.isArray(post.images) && post.images.length > 0 ? (
+                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
+                                                {post.images.map((img) => (
+                                                    <div key={img.id || img._id} style={{ textAlign: 'center' }}>
+                                                        <img src={img.secureUrl || img.url} alt={img.filename} style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 6 }} />
+                                                        <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>ID: {img.id || img._id}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="meta">Không có ảnh</div>
                                         )}
-                                        <div>
-                                            <h5 style={{ margin: 0 }}>{post.title}</h5>
-                                            <div className="meta" style={{ marginTop: 2 }}>
-                                                <strong>Author:</strong> {post.author?.name || 'Unknown'}
+                                        <div className="meta">
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                                {post.authorAvatarUrl ? (
+                                                    <img src={post.authorAvatarUrl} alt="Avatar" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#ddd', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
+                                                        👤
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <strong>Author:</strong> {post.author?.name || 'Unknown'}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <strong>Status:</strong> {post.status} | <strong>Created:</strong> {new Date(post.createdAt).toLocaleString()}
                                             </div>
                                         </div>
                                     </div>
-                                    <p>{post.content}</p>
-                                    {/* Hiển thị tất cả ảnh */}
-                                    {Array.isArray(post.imagesNormalized) && post.imagesNormalized.length > 0 ? (
-                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
-                                            {post.imagesNormalized.map((img) => (
-                                                <div key={img.id} style={{ textAlign: 'center' }}>
-                                                    <img src={img.url} alt={img.id} style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 6 }} />
-                                                    <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>ID: {img.id}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : Array.isArray(post.images) && post.images.length > 0 ? (
-                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '8px 0' }}>
-                                            {post.images.map((img) => (
-                                                <div key={img.id || img._id} style={{ textAlign: 'center' }}>
-                                                    <img src={img.secureUrl || img.url} alt={img.filename} style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 6 }} />
-                                                    <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>ID: {img.id || img._id}</div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="meta">Không có ảnh</div>
-                                    )}
-                                    <div className="meta">
-                                        <strong>Status:</strong> {post.status} | <strong>Created:</strong> {new Date(post.createdAt).toLocaleString()}
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
 
                             {totalPages > 1 && (
                                 <div className="pagination">
