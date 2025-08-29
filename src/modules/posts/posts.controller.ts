@@ -7,6 +7,7 @@ import { success } from '../../utils/response';
 const objectId = () => z.string().regex(/^[a-fA-F0-9]{24}$/);
 
 const CreateDto = z.object({
+    title: z.string().min(3).max(200),
     content: z.string().min(1).max(1000),
     status: z.enum(['DRAFT', 'PUBLISHED']).optional(),
     imageIds: z.array(objectId()).optional().default([])
