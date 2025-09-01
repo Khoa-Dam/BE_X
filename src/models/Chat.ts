@@ -25,8 +25,11 @@ const chatSchema = new Schema({
         sender: { type: Schema.Types.ObjectId, ref: 'User', required: true },
         content: { type: String, required: true },
         createdAt: { type: Date, default: Date.now },
-        read: { type: Boolean, default: false }
-    }],
+        updatedAt: { type: Date, default: Date.now },
+        read: { type: Boolean, default: false },
+        readAt: { type: Date }
+    }]
+    ,
     lastMessage: {
         content: String,
         sender: { type: Schema.Types.ObjectId, ref: 'User' },

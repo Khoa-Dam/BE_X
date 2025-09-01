@@ -13,6 +13,9 @@ router.get('/', ctrl.getChats);
 // Lấy/tạo chat với user
 router.get('/with/:userId', ctrl.getOrCreateChat);
 
+router.get('/:chatId/messages', ctrl.getMessages);
+
+
 // Gửi tin nhắn trong chat
 router.post('/:chatId/messages', ctrl.sendMessage);
 

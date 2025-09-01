@@ -42,6 +42,19 @@ export const getChats = async (userId: string) => {
     .populate('lastMessage.sender', 'name');
 };
 
+export async function getMessages(chatId: string) {
+    const chat = await ChatModel.findById(chatId)
+        .populate({
+            path: 'messages.sender',
+            select: 'name email'
+        });
+
+    if (!chat) throw new AppError('NOT_FOUND', 'Chat not found', 404);
+
+    return chat.messages;
+}
+
+
 // Gửi tin nhắn
 export const sendMessage = async (chatId: string, senderId: string, content: string) => {
     const chat = await ChatModel.findById(chatId);

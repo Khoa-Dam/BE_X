@@ -22,6 +22,18 @@ export const getOrCreateChat = async (req: Request, res: Response, next: NextFun
     } catch (e) { next(e); }
 };
 
+export const getMessages = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { chatId } = req.params;
+        const messages = await svc.getMessages(chatId);
+        res.json(success(messages));
+    } catch (e) {
+        next(e);
+    }
+};
+
+
+
 export const sendMessage = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { chatId } = req.params;

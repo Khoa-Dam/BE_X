@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import { chatAPI } from './services/api';
+
 
 // Components
 import {
@@ -371,6 +373,42 @@ function App() {
         window.location.href = 'http://localhost:4000/api/v1/auth/google';
     };
 
+    // Chat real time
+
+    const [chatForm, setChatForm] = useState({ userId: '', chatId: '', content: '' });
+    const [messages, setMessages] = useState([]);
+
+    async function getOrCreateChat() {
+        try {
+            setLoading(true);
+            const res = await chatAPI.getOrCreate(chatForm.userId);
+            setResponse({ data: res, isError: false, timestamp: new Date().toLocaleString() });
+            setChatForm({ ...chatForm, chatId: res._id });
+            // có thể load luôn tin nhắn của chat này
+            const msgs = await chatAPI.getMessages(res._id);
+            setMessages(msgs);
+        } catch (err) {
+            setResponse({ data: err.message, isError: true, timestamp: new Date().toLocaleString() });
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function sendMessage() {
+        try {
+            setLoading(true);
+            const res = await chatAPI.sendMessage(chatForm.chatId, { content: chatForm.content });
+            setResponse({ data: res, isError: false, timestamp: new Date().toLocaleString() });
+            setMessages([...messages, res]); // thêm tin nhắn mới vào danh sách
+            setChatForm({ ...chatForm, content: '' });
+        } catch (err) {
+            setResponse({ data: err.message, isError: true, timestamp: new Date().toLocaleString() });
+        } finally {
+            setLoading(false);
+        }
+    }
+
+
     return (
         <div className="container">
             <div className="header">
@@ -384,6 +422,7 @@ function App() {
                 <button className={`tab ${activeTab === 'posts' ? 'active' : ''}`} onClick={() => showTab('posts')}>📝 Posts</button>
                 <button className={`tab ${activeTab === 'uploads' ? 'active' : ''}`} onClick={() => showTab('uploads')}>📤 Uploads</button>
                 <button className={`tab ${activeTab === 'google' ? 'active' : ''}`} onClick={() => showTab('google')}>🌐 Google OAuth</button>
+                <button className={`tab ${activeTab === 'chat' ? 'active' : ''}`} onClick={() => showTab('chat')}>🌐 Chat</button>
             </div>
 
             <div className="content">
@@ -723,6 +762,101 @@ function App() {
                         </div>
                     )}
                 </div>
+                {/* Chat Tab */}
+                <div id="chat" className={`tab-content ${activeTab === 'chat' ? 'active' : ''}`}>
+                    <h2>💬 Chat APIs</h2>
+
+                    {!user && (
+                        <div className="warning">
+                            ⚠️ Vui lòng đăng nhập trước khi sử dụng Chat.
+                        </div>
+                    )}
+
+                    {user && (
+                        <>
+                            {/* Tạo/Chọn Chat */}
+                            <div className="card">
+                                <h4>📂 Lấy/Tạo Chat với User</h4>
+                                <div className="form-group">
+                                    <label>User ID:</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Nhập userId muốn chat cùng"
+                                        value={chatForm.userId}
+                                        onChange={(e) =>
+                                            setChatForm({ ...chatForm, userId: e.target.value })
+                                        }
+                                    />
+                                </div>
+                                <button className="btn" onClick={getOrCreateChat} disabled={loading}>
+                                    {loading ? <span className="loading"></span> : '📂 Lấy/Tạo Chat'}
+                                </button>
+                            </div>
+
+                            {/* Gửi tin nhắn */}
+                            <div className="card">
+                                <h4>✉️ Gửi tin nhắn</h4>
+                                <div className="form-group">
+                                    <label>Chat ID:</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Nhập chatId"
+                                        value={chatForm.chatId}
+                                        onChange={(e) =>
+                                            setChatForm({ ...chatForm, chatId: e.target.value })
+                                        }
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label>Nội dung:</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Nhập tin nhắn"
+                                        value={chatForm.content}
+                                        onChange={(e) =>
+                                            setChatForm({ ...chatForm, content: e.target.value })
+                                        }
+                                    />
+                                </div>
+                                <button className="btn" onClick={sendMessage} disabled={loading}>
+                                    {loading ? <span className="loading"></span> : '📩 Gửi'}
+                                </button>
+                            </div>
+
+                            {/* Danh sách tin nhắn */}
+                            {messages.length > 0 && (
+                                <div className="card">
+                                    <h4>🗂️ Danh sách tin nhắn</h4>
+                                    <ul className="messages-list">
+                                        {messages.map((msg) => (
+                                            <li key={msg._id}>
+                                                <strong>{msg.sender?.name || 'Ẩn danh'}:</strong> {msg.content}
+                                                <span className="timestamp">
+                                                    {new Date(msg.createdAt).toLocaleString()}
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </>
+                    )}
+
+                    {response && (
+                        <div
+                            className={`response ${response.isError ? 'error' : 'success'}`}
+                        >
+                            <div className={`status ${response.isError ? 'error' : 'success'}`}>
+                                {response.isError ? '❌ Error' : '✅ Success'}
+                            </div>
+                            <div>
+                                <strong>Timestamp:</strong> {response.timestamp}
+                            </div>
+                            <pre>{JSON.stringify(response.data, null, 2)}</pre>
+                        </div>
+                    )}
+                </div>
+
             </div>
         </div>
     );
