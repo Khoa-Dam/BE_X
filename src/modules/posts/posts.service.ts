@@ -77,22 +77,48 @@ export const getById = async (id: string) => {
 }
 
 export const create = async (authorId: string, dto: { content: string; status?: 'DRAFT' | 'PUBLISHED'; coverId?: string | null }) => {
-    const user = await UserModel.findById(authorId);
-    if (!user) throw new AppError('UNAUTHORIZED', 'User not found', 401);
+    try {
+        console.log('Creating post with data:', { authorId, dto });
+        
+        const user = await UserModel.findById(authorId);
+        if (!user) {
+            console.error('User not found:', authorId);
+            throw new AppError('UNAUTHORIZED', 'User not found', 401);
+        }
 
-    const coverId = dto.coverId ? new Types.ObjectId(dto.coverId) : null;
-    if (coverId) {
-        const f = await FileModel.findById(coverId);
-        if (!f) throw new AppError('NOT_FOUND', 'Cover file not found', 404);
+        let coverId = null;
+        if (dto.coverId) {
+            // Validate ObjectId format
+            if (!Types.ObjectId.isValid(dto.coverId)) {
+                console.error('Invalid coverId format:', dto.coverId);
+                throw new AppError('BAD_REQUEST', 'Invalid coverId format', 400);
+            }
+            
+            coverId = new Types.ObjectId(dto.coverId);
+            const f = await FileModel.findById(coverId);
+            if (!f) {
+                console.error('Cover file not found:', dto.coverId);
+                throw new AppError('NOT_FOUND', 'Cover file not found', 404);
+            }
+        }
+
+        const postData = {
+            authorId: user._id,
+            content: dto.content,
+            status: (dto.status ?? 'PUBLISHED') as PostStatus,
+            coverId
+        };
+        
+        console.log('Creating post with data:', postData);
+        
+        const post = await PostModel.create(postData);
+        console.log('Post created successfully:', post._id);
+        
+        return { ...post.toObject(), id: post._id.toString() };
+    } catch (error) {
+        console.error('Error in create post service:', error);
+        throw error;
     }
-
-    const post = await PostModel.create({
-        authorId: user._id,
-        content: dto.content,
-        status: (dto.status ?? 'PUBLISHED') as PostStatus,
-        coverId
-    });
-    return { ...post.toObject(), id: post._id.toString() };
 }
 
 export const update = async (id: string, userId: string, dto: Partial<{ content: string; status: 'DRAFT' | 'PUBLISHED'; coverId: string | null }>) => {
