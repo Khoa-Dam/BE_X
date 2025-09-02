@@ -17,7 +17,27 @@ export const initializeSocket = (httpServer: HttpServer) => {
 
     // Middleware xác thực token
     io.use((socket, next) => {
-        const token = socket.handshake.auth.token;
+        // Ưu tiên lấy từ handshake.auth.token
+        let token: string | undefined = socket.handshake.auth?.token as any;
+
+        // Fallback: đọc từ cookie "access_token" nếu có (Engine.IO gửi cookie trong headers)
+        if (!token) {
+            const cookieHeader = socket.request.headers.cookie || '';
+            const cookies = Object.fromEntries(
+                cookieHeader
+                    .split(';')
+                    .map((c) => c.trim())
+                    .filter(Boolean)
+                    .map((c) => {
+                        const idx = c.indexOf('=');
+                        const k = idx >= 0 ? c.slice(0, idx) : c;
+                        const v = idx >= 0 ? decodeURIComponent(c.slice(idx + 1)) : '';
+                        return [k, v];
+                    })
+            );
+            token = cookies['access_token'];
+        }
+
         if (!token) {
             return next(new Error('Authentication error'));
         }
@@ -33,7 +53,7 @@ export const initializeSocket = (httpServer: HttpServer) => {
 
     io.on('connection', (socket) => {
         const userId = socket.data.userId;
-        
+
         // Lưu thông tin user online
         onlineUsers.set(userId, socket.id);
 

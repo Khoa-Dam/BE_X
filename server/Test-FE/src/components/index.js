@@ -5,3 +5,4 @@ export { default as UsersTab } from './UsersTab';
 export { default as PostsTab } from './PostsTab';
 export { default as UploadsTab } from './UploadsTab';
 export { default as GoogleOAuthTab } from './GoogleOAuthTab';
+export { default as ChatTab } from './chat/ChatTab';

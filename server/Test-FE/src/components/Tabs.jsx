@@ -5,7 +5,7 @@ export default function Tabs({ active, onChange }) {
         { key: 'posts', label: '📝 Posts' },
         { key: 'uploads', label: '📤 Uploads' },
         { key: 'google', label: '🌐 Google OAuth' },
-        { key: 'chat', label: '🌐 Chat' }
+        { key: 'chat', label: '💬 Chat' }
     ];
 
     return (

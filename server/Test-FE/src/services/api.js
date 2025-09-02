@@ -174,8 +174,20 @@ export const uploadAPI = {
 //export default api;
 
 export const chatAPI = {
-  getChats: () => api.get('/chats'),
-  getOrCreate: (userId) => api.get(`/chats/with/${userId}`),
-  getMessages: (chatId) => api.get(`/chats/${chatId}/messages`),
-  sendMessage: (chatId, message) => api.post(`/chats/${chatId}/messages`, { message }),
+  async getChats() {
+    const res = await api.get('/chats');
+    return res.data;
+  },
+  async getOrCreate(userId) {
+    const res = await api.get(`/chats/with/${userId}`);
+    return res.data;
+  },
+  async getMessages(chatId) {
+    const res = await api.get(`/chats/${chatId}/messages`);
+    return res.data;
+  },
+  async sendMessage(chatId, content) {
+    const res = await api.post(`/chats/${chatId}/messages`, { content });
+    return res.data;
+  },
 };
