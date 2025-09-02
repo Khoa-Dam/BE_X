@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import './App.css';
+import ChatTab from './components/chat/ChatTab';
 import Header from './components/Header';
 import Tabs from './components/Tabs';
 import AuthTab from './components/auth/AuthTab';
@@ -40,6 +41,7 @@ export default function App() {
                 {activeTab === 'posts' && <PostsTab user={user} />}
                 {activeTab === 'uploads' && <UploadsTab user={user} />}
                 {activeTab === 'google' && <GoogleOAuthTab />}
+                {activeTab === 'chat' && <ChatTab />}
             </div>
         </div>
     );

@@ -10,6 +10,8 @@ import googleAuthRoutes from './modules/auth/google/google.oauth.routes';
 import usersRoutes from './modules/users/users.routes';
 import postsRoutes from './modules/posts/posts.routes';
 import uploadsRoutes from './modules/uploads/uploads.routes';
+import chatRoutes from './modules/chat/chat.routes';
+import followRoutes from './modules/follow/follow.routes';
 import { env } from './env';
 
 export const app = express();
@@ -36,6 +38,8 @@ apiV.use('/auth', googleAuthRoutes);
 apiV.use('/users', usersRoutes);
 apiV.use('/uploads', uploadsRoutes);
 apiV.use('/posts', postsRoutes);
+apiV.use('/chats', chatRoutes);
+apiV.use('/social', followRoutes);
 
 app.use(errorHandler);
 
