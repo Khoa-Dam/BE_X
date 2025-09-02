@@ -13,7 +13,10 @@ import {
 } from './components';
 
 // Services
-import { authAPI, userAPI, postsAPI, uploadAPI } from './services/api';
+import * as authAPI from './services/auth';
+import * as userAPI from './services/users';
+import * as postsAPI from './services/posts';
+import * as uploadAPI from './services/files';
 import { setupAxiosInterceptors } from './utils/helpers';
 
 // Setup axios interceptors
@@ -69,12 +72,12 @@ function App() {
 
     const checkAuthStatus = async () => {
         try {
-            const res = await userAPI.getProfile();
+            const res = await userAPI.getMe();
             if (res.success) setUser(res.data);
         } catch (err) {
             try {
                 await authAPI.refresh();
-                const res2 = await userAPI.getProfile();
+                const res2 = await userAPI.getMe();
                 if (res2.success) setUser(res2.data);
             } catch (_) { setUser(null); }
         }
@@ -139,7 +142,7 @@ function App() {
         }
         setLoading(true);
         try {
-            const res = await userAPI.getProfile();
+            const res = await userAPI.getMe();
             if (res.success) {
                 setUser(res.data);
                 handleResponse(res.data);
@@ -162,7 +165,7 @@ function App() {
         }
         setLoading(true);
         try {
-            const res = await userAPI.updateProfile({ name: newName });
+            const res = await userAPI.updateMe({ name: newName });
             if (res.success) {
                 setUser(res.data);
                 handleResponse(res.data);
@@ -203,19 +206,7 @@ function App() {
         if (!postForm.title) { handleResponse('Vui lòng nhập tiêu đề', true); return; }
         setLoading(true);
         try {
-            // Upload nhiều ảnh nếu có
-            let imageIds = [];
-            if (postImageFiles?.length) {
-                for (const f of postImageFiles) {
-                    const fd = new FormData();
-                    fd.append('file', f);
-                    const up = await uploadAPI.upload(fd);
-                    if (up.success) imageIds.push(up.data.id);
-                }
-            }
-            const payload = { ...postForm };
-            if (imageIds.length) payload.imageIds = imageIds;
-            const res = await postsAPI.create(payload, postImageFiles);
+            const res = await postsAPI.createPost(postForm, postImageFiles);
             if (res.success) {
                 handleResponse(res.data);
                 setPostForm({ title: '', content: '', status: 'DRAFT' });
@@ -233,7 +224,7 @@ function App() {
             const search = document.getElementById('searchPosts')?.value || '';
             const sort = document.getElementById('sortPosts')?.value || 'createdAt';
             const order = document.getElementById('orderPosts')?.value || 'desc';
-            const res = await postsAPI.list({ page: currentPage, limit: 10, search, sort, order });
+            const res = await postsAPI.listPosts({ page: currentPage, limit: 10, search, sort, order });
             console.log('[POSTS LIST] response:', res);
             console.log('[POSTS LIST] response.data:', res.data);
             if (res.success) {
@@ -254,33 +245,16 @@ function App() {
         }
         setLoading(true);
         try {
-            const updateData = {};
-            if (updatePostForm.title) updateData.title = updatePostForm.title;
-            if (updatePostForm.content) updateData.content = updatePostForm.content;
-
-            // Replace toàn bộ imageIds nếu nhập
-            if (updateReplaceImageIds.trim()) {
-                const ids = updateReplaceImageIds.split(',').map(x => x.trim()).filter(Boolean);
-                updateData.imageIds = ids;
-            } else {
-                // Nếu không replace, cho phép add/remove
-                if (updateAddImageFiles?.length) {
-                    const addIds = [];
-                    for (const f of updateAddImageFiles) {
-                        const fd = new FormData();
-                        fd.append('file', f);
-                        const up = await uploadAPI.upload(fd);
-                        if (up.success) addIds.push(up.data.id);
-                    }
-                    if (addIds.length) updateData.addImageIds = addIds;
+            const res = await postsAPI.updatePost(
+                updatePostForm.id,
+                {
+                    title: updatePostForm.title,
+                    content: updatePostForm.content,
+                    replaceImageIds: updateReplaceImageIds,
+                    addImageFiles: updateAddImageFiles,
+                    removeImageIds: updateRemoveImageIds,
                 }
-                if (updateRemoveImageIds.trim()) {
-                    const rem = updateRemoveImageIds.split(',').map(x => x.trim()).filter(Boolean);
-                    if (rem.length) updateData.removeImageIds = rem;
-                }
-            }
-
-            const res = await postsAPI.update(updatePostForm.id, updateData, updateAddImageFiles, updateRemoveImageIds, updateReplaceImageIds);
+            );
             if (res.success) {
                 handleResponse(res.data);
                 setUpdatePostForm({ id: '', title: '', content: '' });
@@ -299,7 +273,7 @@ function App() {
         if (!postId) { handleResponse('Vui lòng nhập ID bài viết', true); return; }
         if (!window.confirm('Bạn có chắc chắn muốn xóa bài viết này?')) return;
         setLoading(true);
-        try { const res = await postsAPI.delete(postId); if (res.success) { handleResponse(res.data); document.getElementById('deletePostId').value = ''; listPosts(); } }
+        try { const res = await postsAPI.deletePost(postId); if (res.success) { handleResponse(res.data); document.getElementById('deletePostId').value = ''; listPosts(); } }
         catch (error) { handleResponse(error.response?.data?.error?.message || 'Xóa bài viết thất bại', true); }
         finally { setLoading(false); }
     };
@@ -314,9 +288,7 @@ function App() {
         if (!file) return;
         setLoading(true);
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            const res = await uploadAPI.upload(file);
+            const res = await uploadAPI.uploadFile(file);
             if (res.success) handleResponse(res.data);
         } catch (error) {
             handleResponse(error.response?.data?.error?.message || 'Upload file thất bại', true);
@@ -333,7 +305,7 @@ function App() {
         }
         setLoading(true);
         try {
-            const res = await uploadAPI.getMeta(fileId);
+            const res = await uploadAPI.getFileMeta(fileId);
             if (res.success) handleResponse(res.data);
         } catch (error) {
             handleResponse(error.response?.data?.error?.message || 'Lấy thông tin file thất bại', true);
@@ -355,7 +327,7 @@ function App() {
         if (!window.confirm('Bạn có chắc chắn muốn xóa file này?')) return;
         setLoading(true);
         try {
-            const res = await uploadAPI.delete(fileId);
+            const res = await uploadAPI.deleteFile(fileId);
             if (res.success) {
                 handleResponse(res.data);
                 document.getElementById('deleteFileId').value = '';
